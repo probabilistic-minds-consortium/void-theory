@@ -93,11 +93,23 @@ When the budget runs out mid-computation, the result is not an error but BUnknow
 
 ## ⚡ What VOID Produces
 
-The theory has three independent implementations, each demonstrating a different consequence of finite mathematics.
+The theory has four independent implementations, each demonstrating a different consequence of finite mathematics.
 
 ### Formal Proofs (Coq/Rocq)
 
-Forty-one files of machine-verified mathematics. The proofs cover finite arithmetic, bounded probability on the open interval, pattern algebra, entropy as distinguishability gradient, convergence under resource constraints, topological folding, phase orbits, interference routing, and the complete architecture of a finite budgeted perceptron — including proven theorems that synaptic conductance preserves the open interval through learning. Every theorem is constructively verified. The single admitted axiom is the MAX bound. Everything else is derived.
+Forty-eight files of machine-verified mathematics. The proofs cover finite arithmetic, bounded probability on the open interval, pattern algebra, entropy as distinguishability gradient, convergence under resource constraints, topological folding, phase orbits, interference routing, and the complete architecture of a finite budgeted perceptron — including proven theorems that synaptic conductance preserves the open interval through learning. Every theorem is constructively verified. The single admitted axiom is the MAX bound. Everything else is derived.
+
+### Resonant Ensemble (Python)
+
+A neural network that does not learn by adjusting weights. Weights are frozen at birth — random FinProb values drawn once and never touched again. Instead, the network learns through natural selection: cells that predict correctly receive budget refunds, cells that predict incorrectly lose budget and eventually die. No backpropagation. No gradient. No loss function. Learning is thermodynamic: the permanent, irreversible cost of every wrong prediction, and the selective survival of cells whose frozen structure happened to match reality.
+
+The architecture has no layers. Cells are organized by resonant frequency — a characteristic FinProb value assigned at initialization. When an input arrives, only cells whose frequency matches the input's spectral signature are activated. Activated cells process the input through their frozen weights, then enter a cascade: cells that agree amplify each other's amplitude (reputation), cells that disagree dampen each other. The final verdict emerges from amplitude-weighted voting — not from a fixed architecture, but from a physical consensus process analogous to Huygens' synchronization of coupled oscillators.
+
+Every operation inside the network draws from a finite budget. Every comparison, every accumulation, every vote costs ticks tracked by the conservation law B = B' + h. When a cell's budget reaches zero, it does not error — it falls silent and is removed from the ensemble. The system does not converge to an optimum. It converges to a population of survivors.
+
+Tested on the Wisconsin Breast Cancer dataset (569 samples, 30 features, binary classification), the Resonant Ensemble reaches 82% accuracy with 64 cells at resolution D(ρ) = 16 — meaning every probability in the system has exactly 15 distinguishable levels. No float is used anywhere inside the VOID core. Sensory transduction at the boundary converts external floats into FinProb signals; from that point forward, every arithmetic operation is budgeted, every result is a pair of bounded integers, and every cell that speaks has paid for the right to do so.
+
+Three learning pressures operate simultaneously: credit propagation (budget refund for correct predictions), amplitude modulation (resonance cascade between agreeing cells), and universal damping (entropy decays every amplitude toward minimum). A cell survives only if it earns more through accuracy than it loses through thermodynamic cost. This is not optimization. This is evolution under resource constraint.
 
 ### VOID Neural Network (Rust)
 
@@ -167,7 +179,15 @@ The parasitic monitor includes 74 automated tests that verify pure VOID logic wi
 | `void_entropy.v` | Entropy as distinguishability gradient |
 | `void_gates.v` | AND, OR, NAND, XOR with budget tracking |
 
-Plus 30+ more `.v` files covering geometry, topology, resonance, interference routing, phase orbits, and quantum phenomena emerging from resource constraints.
+Plus 37 more `.v` files covering geometry, topology, resonance, interference routing, phase orbits, thermal convection, topology folding, and quantum phenomena emerging from resource constraints.
+
+### Resonant Ensemble (Python)
+
+| File | What it does |
+|---|---|
+| `void_resonant_ensemble.py` | Complete implementation: Fin type, FinProb, Bool3, budgeted arithmetic, ResonantCell, cascade, credit propagation, sensory transduction, Breast Cancer demo |
+
+Types used inside VOID core: `Fin` (inductive finite natural — no arithmetic operators), `FinProb` (probability as pair of Fin with constant denominator D(ρ)), `Bool3` (true / false / unknown). Every operation returns `(result, new_budget, heat)`. No float. No free `int` arithmetic. Conservation verified at runtime: Σ budget + Σ heat = Σ granted.
 
 ### Parasitic Monitor (Python, v3.1)
 
@@ -228,5 +248,5 @@ MIT — Use freely, but remember: everything costs.
 
 **"In the beginning was the Fin, and the Fin was with Void, and the Fin was Void."**
 
-*Probabilistic Mind Consortium, 2025*
+*Probabilistic Minds Consortium, 2025–2026*
 *Built with finite time, verified in Coq, offered to a finite world.*
