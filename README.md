@@ -218,11 +218,9 @@ Types used inside VOID core: `Fin` (inductive finite natural — no arithmetic o
 
 **Konrad Wojnowski** — Assistant Professor, Performativity Studies Department, Jagiellonian University, Kraków. PhD in philosophy of communication.
 
-Author of *Aesthetics of Disturbance* (on Michael Haneke's cinema) and *Productive Catastrophes* (on the performative power of catastrophes in network culture). Research spans performativity theory, philosophy of technology, and the impact of probability on avant-garde art — from John Cage's indeterminacy to Vilém Flusser's informational freedom.
+Author of *Aesthetics of Disturbance* (on Michael Haneke's cinema) and *Productive Catastrophes* (on the performative power of catastrophes in network culture). Research spans performativity theory, philosophy of technology, and the impact of probability on avant-garde art — from multifaceted interest in probability among Italian Furueists to John Cage's occupation with aesthetic indeterminacy.
 
-Currently leading a research project on probability theory in 20th and 21st century art and science fiction.
-
-Not a mathematician. Not a programmer. Built VOID because infinity is a bug, not a feature.
+Not a mathematician. Not a programmer. Built VOID because infinity is a bug, not a feature. Working on Void Theory since August 2024. Probably one of the first vibe coders out there without even knowing it.
 
 ---
 
