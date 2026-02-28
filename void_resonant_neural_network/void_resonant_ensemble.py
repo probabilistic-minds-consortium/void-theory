@@ -1,26 +1,33 @@
 #!/usr/bin/env python3
 """
-VOID Resonant Ensemble — Implementacja wierna teorii VOID.
+VOID Resonant Ensemble v2 — Implementation faithful to VOID theory.
 
-System typów:
-  - Fin: typ indukcyjny (fz | fs Fin). Opakowany — BRAK operatorów arytmetycznych.
-  - FinProb: (Fin, Fin) = prawdopodobieństwo w otwartym (0,1). Stały mianownik D(ρ).
+Type system:
+  - Fin: inductive type (fz | fs Fin). Wrapped — NO arithmetic operators.
+  - FinProb: (Fin, Fin) = probability in open interval (0,1). Constant denominator D(rho).
   - Bool3: BTrue | BFalse | BUnknown
 
-Aksomaty:
-  - Conservation: B = B' ⊕ h dla KAŻDEJ operacji WRITE
-  - READ = darmowy (h=0), WRITE = kosztowny (h ≥ 1)
-  - Brak float wewnątrz VOID core. Brak wolnej arytmetyki int.
-  - FinProb ∈ (0,1) — NIGDY dokładnie 0 ani 1.
-  - Decay δ(n/d) = (n-1)/d — entropia jest uniwersalna.
-  - Wagi ZAMROŻONE. Uczenie = selekcja budżetowa (dobór naturalny).
+Axioms:
+  - Conservation: B = B' + h for EVERY WRITE operation
+  - READ = free (h=0), WRITE = costly (h >= 1)
+  - No float inside VOID core. No free int arithmetic.
+  - FinProb in (0,1) — NEVER exactly 0 or 1.
+  - Decay delta(n/d) = (n-1)/d — entropy is universal, costs 1mu (WRITE).
+  - Weights FROZEN. Learning = budget selection (natural selection).
 
-Źródła Coq:
+v2 fixes (Claude-to-Claude audit):
+  Fix #1: Conservation — environment pool instead of fake closure.
+          Refunds come from an explicit environment pool, not from nothing.
+  Fix #2: decay_prob costs 1 tick (WRITE, not free).
+  Fix #3: evaluate() — aggressive comments about Theorem 7.4.
+  Fix #4: verdict() confidence — marked as BOUNDARY with justification.
+  Fix #5: Comment on structural entropy elimination (constant denominator).
+  Fix #6: Grace period g_rho(pi) — cell survives GRACE_TICKS after budget=0.
+
+Coq sources:
   void_finite_minimal.v, void_probability_minimal.v, void_resonance.v,
   void_pattern.v, void_neural_theory.v, void_sensory_transduction.v,
   void_credit_propagation.v
-
-Autor: VOID Mathematics Implementation
 """
 
 import random
@@ -30,39 +37,57 @@ from typing import List, Tuple, Optional
 
 
 # =============================================================================
-# CZĘŚĆ 0: STAŁE ROZDZIELCZOŚCI — D(ρ)
+# PART 0: RESOLUTION CONSTANTS — D(rho)
 # =============================================================================
 
-DENOM = 16              # D(ρ) — denominator cap. Stały dla wszystkich FinProb.
-HALF_NUM = 8            # Połowa: 8/16 = 0.5
-N_FEATURES = 30         # Breast Cancer: 30 cech
-N_CELLS = 64            # Rozmiar puli komórek
-INITIAL_BUDGET = 1_000_000  # Początkowy budżet na komórkę — duże Fin, ale SKOŃCZONE
-REFUND_AMOUNT = 1000    # Nagroda za poprawną predykcję
-DRAIN_AMOUNT = 300      # Kara za błędną predykcję
-RESONANCE_THRESHOLD = 2 # Próg dopasowania częstotliwości (Fin)
-CASCADE_FUEL = 5        # Maksymalna liczba rund kaskady (fuel pattern)
-DAMPING_INTERVAL = 100  # Co ile sampli: universal damping
-AMPLITUDE_BOOST_NUM = 2 # Wzmocnienie amplitudy: +2/DENOM
+DENOM = 16              # D(rho) — denominator cap. Constant for all FinProb.
+                        #
+                        # FIX #5: Constant denominator ELIMINATES structural entropy.
+                        # Paper S5.5-5.6: 35/50 != 7/10 — lazy retention preserves
+                        # fraction composition history. With a constant denominator this
+                        # mechanism does not exist: add_prob adds numerators and clamps.
+                        # This is a DELIBERATE design decision — eliminates denominator
+                        # explosion (S audit violation 4) at the cost of losing one of
+                        # VOID's most interesting properties: arithmetic as a
+                        # thermodynamic process with accumulated entropy.
+                        # ROADMAP v3: variable denominator with budgeted reduction.
+HALF_NUM = 8            # Half: 8/16 = 0.5
+N_FEATURES = 30         # Breast Cancer: 30 features
+N_CELLS = 64            # Cell pool size
+INITIAL_BUDGET = 1_000_000  # Initial budget per cell — large Fin, but FINITE
+REFUND_AMOUNT = 1000    # Reward for correct prediction
+DRAIN_AMOUNT = 300      # Penalty for incorrect prediction
+RESONANCE_THRESHOLD = 2 # Frequency matching threshold (Fin)
+CASCADE_FUEL = 5        # Maximum number of cascade rounds (fuel pattern)
+DAMPING_INTERVAL = 100  # Universal damping every N samples
+AMPLITUDE_BOOST_NUM = 2 # Amplitude boost: +2/DENOM
+GRACE_TICKS = 10        # FIX #6: Grace period g_rho(pi) — cell survives this many
+                        # samples after budget exhaustion before collapsing.
+                        # Paper S8.1: pattern survives k ticks without refresh,
+                        # then suddenly collapses. Enables metastable regime III.
 SEED = 42
+ENVIRONMENT_POOL = 1_000_000_000  # FIX #1: Explicit environment pool.
+                                   # Refunds come from this resource, not from nothing.
+                                   # When the pool is exhausted — the system dies.
+                                   # B_0(system) = SUM INITIAL_BUDGET + ENVIRONMENT_POOL.
 
 
 # =============================================================================
-# CZĘŚĆ 1: TYP Fin — SKOŃCZONA LICZBA NATURALNA
+# PART 1: Fin TYPE — FINITE NATURAL NUMBER
 # =============================================================================
 
 class Fin:
     """
-    Fin — skończona liczba naturalna. Indukcyjny typ: fz | fs Fin.
+    Fin — finite natural number. Inductive type: fz | fs Fin.
 
-    Wewnętrzna reprezentacja: Python int (dla wydajności).
-    ALE: ŻADNYCH operatorów arytmetycznych (+, -, *, /, //, %).
-    Każda operacja MUSI przejść przez funkcje budżetowane.
+    Internal representation: Python int (for performance).
+    BUT: NO arithmetic operators (+, -, *, /, //, %).
+    Every operation MUST go through budgeted functions.
 
-    READ (odczyt wartości): darmowy — odpowiednik pattern match na fz/fs.
-    WRITE (modyfikacja): TYLKO przez budżetowane funkcje.
+    READ (value access): free — equivalent to pattern match on fz/fs.
+    WRITE (modification): ONLY through budgeted functions.
 
-    Z void_finite_minimal.v:
+    From void_finite_minimal.v:
       Inductive Fin : Type := fz : Fin | fs : Fin -> Fin.
     """
     __slots__ = ['_v']
@@ -73,11 +98,11 @@ class Fin:
 
     @property
     def val(self) -> int:
-        """READ operation — darmowy odczyt. Pattern match na fz/fs w Coq."""
+        """READ operation — free access. Pattern match on fz/fs in Coq."""
         return self._v
 
     def is_fz(self) -> bool:
-        """READ: czy to fz (zero)?"""
+        """READ: is this fz (zero)?"""
         return self._v == 0
 
     def __eq__(self, other):
@@ -91,34 +116,37 @@ class Fin:
     def __repr__(self):
         return f"Fin({self._v})"
 
-    # CELOWO BRAK: __add__, __sub__, __mul__, __truediv__, __lt__, __le__, __gt__, __ge__
-    # Wszystkie operacje arytmetyczne MUSZĄ przejść przez budżetowane funkcje.
+    # DELIBERATELY ABSENT: __add__, __sub__, __mul__, __truediv__, __lt__, __le__, __gt__, __ge__
+    # All arithmetic operations MUST go through budgeted functions.
 
 
 # =============================================================================
-# CZĘŚĆ 2: TYP FinProb — PRAWDOPODOBIEŃSTWO W (0,1)
+# PART 2: FinProb TYPE — PROBABILITY IN (0,1)
 # =============================================================================
 
 class FinProb:
     """
-    FinProb — prawdopodobieństwo w otwartym przedziale (0, 1).
-    P°_ρ = {n/d | 1 ≤ n < d ≤ D(ρ)}
+    FinProb — probability in the open interval (0, 1).
+    P_rho = {n/d | 1 <= n < d <= D(rho)}
 
-    Ze stałym mianownikiem D(ρ) = DENOM:
-    Dozwolone wartości: (1, DENOM), (2, DENOM), ..., (DENOM-1, DENOM)
+    With constant denominator D(rho) = DENOM:
+    Allowed values: (1, DENOM), (2, DENOM), ..., (DENOM-1, DENOM)
 
-    NIGDY: (0, d) = 0  [poza (0,1)]
-    NIGDY: (d, d) = 1  [poza (0,1)]
+    NEVER: (0, d) = 0  [outside (0,1)]
+    NEVER: (d, d) = 1  [outside (0,1)]
 
-    Z void_probability_minimal.v:
+    FIX #5 NOTE: Constant denominator eliminates structural entropy (S5.5-5.6).
+    35/50 != 7/10 in full VOID — here both are 7/10 after normalization.
+
+    From void_probability_minimal.v:
       Definition FinProb := (Fin * Fin)%type.
-      boundary_exclusion: 0 < num ∧ num < den
+      boundary_exclusion: 0 < num /\\ num < den
     """
     __slots__ = ['num', 'den']
 
     def __init__(self, num: Fin, den: Fin):
         assert isinstance(num, Fin) and isinstance(den, Fin)
-        assert num.val >= 1, f"FinProb: num must be ≥ 1, got {num}"
+        assert num.val >= 1, f"FinProb: num must be >= 1, got {num}"
         assert num.val < den.val, f"FinProb: num ({num}) must be < den ({den})"
         self.num = num
         self.den = den
@@ -136,31 +164,25 @@ class FinProb:
 
     @staticmethod
     def half(d: int = DENOM) -> 'FinProb':
-        """HALF = (d//2, d). Punkt środkowy skali."""
         return FinProb(Fin(d // 2), Fin(d))
 
     @staticmethod
     def min_val(d: int = DENOM) -> 'FinProb':
-        """Minimum = (1, d) ≈ 0⁺. Nigdy dokładnie 0."""
         return FinProb(Fin(1), Fin(d))
 
     @staticmethod
     def max_val(d: int = DENOM) -> 'FinProb':
-        """Maximum = (d-1, d) ≈ 1⁻. Nigdy dokładnie 1."""
         return FinProb(Fin(d - 1), Fin(d))
 
 
 # =============================================================================
-# CZĘŚĆ 3: Bool3 — TRÓJWARTOŚCIOWA LOGIKA
+# PART 3: Bool3 — THREE-VALUED LOGIC
 # =============================================================================
 
 class Bool3(Enum):
     """
-    Bool3 — trójwartościowa logika VOID.
-    Z void_finite_minimal.v: Inductive Bool3 := btrue | bfalse | bunknown.
-
-    BUnknown = ubóstwo termodynamiczne, NIE semantyczny brak informacji.
-    Gdy budżet = 0, każda operacja zwraca BUnknown.
+    Bool3 — VOID's three-valued logic.
+    BUnknown = thermodynamic poverty, NOT semantic lack of information.
     """
     BTrue = 1
     BFalse = 2
@@ -168,76 +190,49 @@ class Bool3(Enum):
 
 
 # =============================================================================
-# CZĘŚĆ 4: BUDŻETOWANE OPERACJE NA Fin
-# Każda zwraca (wynik, nowy_budżet, ciepło). B = B' ⊕ h.
+# PART 4: BUDGETED OPERATIONS ON Fin
+# Each returns (result, new_budget, heat). B = B' + h.
 # =============================================================================
 
 def add_fin(a: Fin, b: Fin, budget: Fin) -> Tuple[Fin, Fin, Fin]:
     """
-    Dodawanie Fin: a + b. Koszt: b ticks budżetu.
-
-    Z void_arithmetic.v:
-      Fixpoint add_fin (a b : Fin) (budget : Budget) : (Fin * Budget) :=
-        match b, budget with
-        | fz, _ => (a, budget)
-        | _, fz => (a, fz)
-        | fs b', fs budget' => add_fin (fs a) b' budget'
-        end.
-
-    Jeśli budżet < b: wynik częściowy (a + available).
-    Conservation: budget_in = budget_out + heat. ZAWSZE.
+    Fin addition: a + b. Cost: b ticks of budget.
+    From void_arithmetic.v: add_fin
+    If budget < b: partial result (a + available).
     """
     cost = min(b.val, budget.val)
     result = Fin(a.val + cost)
     new_budget = Fin(budget.val - cost)
     heat = Fin(cost)
-    # Conservation check: budget.val == new_budget.val + heat.val
     assert budget.val == new_budget.val + heat.val, "Conservation violated in add_fin!"
     return (result, new_budget, heat)
 
 
 def le_fin(a: Fin, b: Fin, budget: Fin) -> Tuple[Optional[bool], Fin, Fin]:
     """
-    Porównanie Fin: a ≤ b? Koszt: min(a, b) ticks.
-
-    Z void_arithmetic.v:
-      Fixpoint le_fin_b (a b : Fin) (budget : Budget) :=
-        match a, b, budget with
-        | fz, _, _ => (true, budget)    -- 0 ≤ cokolwiek, darmowe
-        | _, fz, _ => (false, budget)   -- n+1 > 0, darmowe
-        | fs a', fs b', fz => (false, fz) -- budżet wyczerpany
-        | fs a', fs b', fs budget' => le_fin_b a' b' budget'
-        end.
-
-    Zwraca None gdy budżet wyczerpany (→ BUnknown).
+    Fin comparison: a <= b? Cost: min(a, b) ticks.
+    From void_arithmetic.v: le_fin_b
+    Returns None when budget exhausted.
     """
-    # Base cases — FREE (no budget consumed)
     if a.val == 0:
         return (True, budget, Fin(0))
     if b.val == 0:
         return (False, budget, Fin(0))
 
-    # Recursive case: cost = min(a, b)
     cost = min(a.val, b.val)
     if budget.val < cost:
-        # Budżet wyczerpany — nie możemy ustalić wyniku
         heat = Fin(budget.val)
         return (None, Fin(0), heat)
 
     result = a.val <= b.val
     new_budget = Fin(budget.val - cost)
     heat = Fin(cost)
-    assert budget.val == new_budget.val + heat.val, "Conservation violated in le_fin!"
+    assert budget.val == new_budget.val + heat.val
     return (result, new_budget, heat)
 
 
 def le_fin_b3(a: Fin, b: Fin, budget: Fin) -> Tuple[Bool3, Fin, Fin]:
-    """
-    Porównanie Fin z wynikiem Bool3. Wrapper nad le_fin.
-
-    Z void_probability_minimal.v: prob_le_b3
-    Budżet wyczerpany → BUnknown (ubóstwo termodynamiczne).
-    """
+    """Fin comparison with Bool3 result. Budget exhausted -> BUnknown."""
     result, new_budget, heat = le_fin(a, b, budget)
     if result is None:
         return (Bool3.BUnknown, new_budget, heat)
@@ -249,13 +244,8 @@ def le_fin_b3(a: Fin, b: Fin, budget: Fin) -> Tuple[Bool3, Fin, Fin]:
 
 def dist_fin(a: Fin, b: Fin, budget: Fin) -> Tuple[Fin, Fin, Fin]:
     """
-    Odległość Fin: |a - b|. Koszt: min(a, b) ticks.
-
-    Z void_resonance.v: dist_fin_b
-      match a, b with
-      | fz, _ => (b, budget)
-      | _, fz => (a, budget)
-      | fs a', fs b' => dist_fin_b a' b' (budget-1)
+    Fin distance: |a - b|. Cost: min(a, b) ticks.
+    From void_resonance.v: dist_fin_b
     """
     if a.val == 0:
         return (b, budget, Fin(0))
@@ -273,104 +263,64 @@ def dist_fin(a: Fin, b: Fin, budget: Fin) -> Tuple[Fin, Fin, Fin]:
     return (Fin(diff), new_budget, heat)
 
 
-def eq_fin(a: Fin, b: Fin, budget: Fin) -> Tuple[Optional[bool], Fin, Fin]:
-    """
-    Równość Fin: a == b? Koszt: min(a, b) ticks (jak le_fin).
-
-    Z void_arithmetic.v: fin_eq_b
-    """
-    if a.val == 0 and b.val == 0:
-        return (True, budget, Fin(0))
-    if a.val == 0 or b.val == 0:
-        return (False, budget, Fin(0))
-
-    cost = min(a.val, b.val)
-    if budget.val < cost:
-        return (None, Fin(0), Fin(budget.val))
-
-    result = a.val == b.val
-    new_budget = Fin(budget.val - cost)
-    heat = Fin(cost)
-    return (result, new_budget, heat)
-
-
 # =============================================================================
-# CZĘŚĆ 5: BUDŻETOWANE OPERACJE NA FinProb (stały mianownik)
+# PART 5: BUDGETED OPERATIONS ON FinProb (constant denominator)
 # =============================================================================
 
 def add_heat(h1: Fin, h2: Fin) -> Fin:
-    """
-    Akumulacja ciepła — BOOKKEEPING, nie obliczenie. Darmowe.
-    Jak w Coq: add_heat to infrastruktura dowodowa, nie operacja VOID.
-    """
+    """Heat accumulation — BOOKKEEPING, not computation. Free."""
     return Fin(h1.val + h2.val)
 
 
 def add_prob(p1: FinProb, p2: FinProb, budget: Fin) -> Tuple[FinProb, Fin, Fin]:
     """
-    Dodawanie FinProb ze stałym mianownikiem.
-    (a, d) + (c, d) = (min(a+c, d-1), d) — clamp do (0,1).
-
-    Z void_resonance.v: add_prob_b — gdy d1==d2, just add numerators.
-    Koszt: add_fin(a, c, budget) = c ticks.
+    FinProb addition with constant denominator.
+    (a, d) + (c, d) = (min(a+c, d-1), d).
+    Cost: add_fin(a, c, budget) = c ticks.
     """
-    assert p1.den == p2.den, f"add_prob: mianowniki muszą być równe: {p1.den} vs {p2.den}"
-
+    assert p1.den == p2.den
     result_num, new_budget, heat = add_fin(p1.num, p2.num, budget)
-
-    # Clamp: numerator < denominator (granica wyłączona: nigdy == d)
     d = p1.den.val
     clamped = min(result_num.val, d - 1)
-    # Clamp: numerator ≥ 1 (granica wyłączona: nigdy == 0)
     clamped = max(clamped, 1)
-
     return (FinProb(Fin(clamped), p1.den), new_budget, heat)
 
 
 def prob_le(p1: FinProb, p2: FinProb, budget: Fin) -> Tuple[Bool3, Fin, Fin]:
-    """
-    Porównanie FinProb: p1 ≤ p2? Ze stałym mianownikiem: porównaj liczniki.
-
-    Z void_probability_minimal.v: prob_le_b3
-    """
-    assert p1.den == p2.den, f"prob_le: mianowniki muszą być równe"
+    """FinProb comparison: p1 <= p2? With constant denominator: compare numerators."""
+    assert p1.den == p2.den
     return le_fin_b3(p1.num, p2.num, budget)
 
 
 def dist_prob(p1: FinProb, p2: FinProb, budget: Fin) -> Tuple[Fin, Fin, Fin]:
-    """
-    Odległość FinProb: |p1 - p2| (jako Fin — różnica liczników).
-    Ze stałym mianownikiem: dist_fin na licznikach.
-    """
+    """FinProb distance (as Fin — numerator difference)."""
     assert p1.den == p2.den
     return dist_fin(p1.num, p2.num, budget)
 
 
-def decay_prob(p: FinProb) -> FinProb:
+def decay_prob(p: FinProb, budget: Fin) -> Tuple[FinProb, Fin, Fin]:
     """
-    Decay: δ(n/d) = (n-1)/d jeśli n > 1, inaczej (1/d).
-    Entropia jest UNIWERSALNA — każda amplituda gaśnie.
+    Decay: delta(n/d) = (n-1)/d if n > 1, otherwise (1/d).
 
-    Z void_pattern.v: decay_with_budget
-    Z PDF sekcja 5.5: δ(n/d) = (n-1)/d
-
-    DARMOWE — decay to READ obecnego stanu + zapis nowej wartości.
-    Koszt 0 ticks (decay jest konsekwencją upływu czasu, nie obliczeniem).
-    Tak jak w void_resonance.v: write_apply_damping kosztuje 1 tick budżetu.
-    ALE: tu liczymy to jako darmowe, bo decay jest PASYWNY (entropia).
+    FIX #2: Decay costs 1 tick. This is a WRITE — it changes pattern state.
+    void_resonance.v: write_apply_damping costs 1 budget tick.
+    Paper S5.5: decay is a state operation, not a free observation.
+    Even if entropy is "natural", writing a new amplitude is a modification.
     """
+    if budget.val == 0:
+        # Cannot afford decay — state unchanged (thermodynamic freeze)
+        return (p, budget, Fin(0))
+
+    new_budget = Fin(budget.val - 1)
+    heat = Fin(1)
+
     if p.num.val <= 1:
-        return FinProb(Fin(1), p.den)  # Minimum — nigdy 0
-    return FinProb(Fin(p.num.val - 1), p.den)
+        return (FinProb(Fin(1), p.den), new_budget, heat)
+    return (FinProb(Fin(p.num.val - 1), p.den), new_budget, heat)
 
 
 def boost_prob(p: FinProb, amount: Fin, budget: Fin) -> Tuple[FinProb, Fin, Fin]:
-    """
-    Wzmocnienie FinProb: (n/d) → (min(n+amount, d-1)/d).
-    Clamp: nigdy nie osiąga 1.
-
-    Koszt: add_fin(n, amount, budget).
-    """
+    """FinProb boost: (n/d) -> (min(n+amount, d-1)/d). Cost: add_fin."""
     result_num, new_budget, heat = add_fin(p.num, amount, budget)
     d = p.den.val
     clamped = min(result_num.val, d - 1)
@@ -379,55 +329,69 @@ def boost_prob(p: FinProb, amount: Fin, budget: Fin) -> Tuple[FinProb, Fin, Fin]
 
 
 # =============================================================================
-# CZĘŚĆ 6: TRACKER CONSERVATION — asercja B = B' ⊕ h
+# PART 6: CONSERVATION TRACKER
 # =============================================================================
 
 class ConservationTracker:
     """
-    Śledzi łączny budżet i ciepło systemu.
-    Asercja: suma budżetów + suma ciepła = stała (total_budget_ever_granted).
+    FIX #1: Open model with explicit environment pool.
+
+    The system is NOT closed — cells receive refunds from the environment pool.
+    Ledger identity (S7.1): B_system + H_system + B_env = CONST.
+
+    Closed circuit: the sum (cell budgets + cell heat + environment pool)
+    is CONSTANT throughout the system's lifetime. Refunds TRANSFER budget
+    from the pool to cells — they don't create it from nothing.
+
+    When the environment pool is exhausted -> no refunds -> system dies.
+    This is thermodynamic heat death at the population level.
     """
-    def __init__(self):
-        self.total_granted = 0  # Suma budżetów kiedykolwiek przydzielonych
+    def __init__(self, n_cells: int, initial_budget: int, env_pool: int):
+        self.cell_budget_total = n_cells * initial_budget
+        self.env_pool = env_pool
+        # CONST = sum of all budgets + pool + heat(=0 at start)
+        self.CONST = self.cell_budget_total + self.env_pool
+        self.total_heat = 0
         self.violations = 0
 
-    def register_budget(self, amount: int):
-        """Rejestruj nowy budżet (inicjalizacja lub refund)."""
-        self.total_granted += amount
+    def refund(self, amount: int) -> int:
+        """
+        Draw refund from the environment pool.
+        Returns actually available amount (may be < amount if pool is low).
+        """
+        actual = min(amount, self.env_pool)
+        self.env_pool -= actual
+        return actual
 
-    def check(self, cells: list):
-        """Sprawdź conservation: Σ(budget) + Σ(heat) = total_granted."""
+    def record_heat(self, h: int):
+        """Record heat generated by operations."""
+        self.total_heat += h
+
+    def check(self, cells: list) -> bool:
+        """
+        Check conservation: SUM(budget) + SUM(heat) + env_pool = CONST.
+        If not — violation.
+        """
         total_budget = sum(c.budget.val for c in cells)
         total_heat = sum(c.heat.val for c in cells)
-        total = total_budget + total_heat
-        if total != self.total_granted:
+        total = total_budget + total_heat + self.env_pool
+        if total != self.CONST:
             self.violations += 1
-            # Nie przerywaj — loguj różnicę
             return False
         return True
 
 
 # =============================================================================
-# CZĘŚĆ 7: KOMÓRKA REZONANSOWA
+# PART 7: RESONANT CELL
 # =============================================================================
 
 @dataclass
 class ResonantCell:
     """
-    Komórka Rezonansowa — podstawowa jednostka obliczeniowa.
+    Resonant Cell — fundamental computational unit.
 
-    ZAMROŻONE (nie zmieniają się po inicjalizacji):
-      w_for:     List[FinProb] — wagi za BTrue
-      w_against: List[FinProb] — wagi za BFalse
-      frequency: FinProb        — częstotliwość charakterystyczna
-
-    ZMIENNE (zmieniają się w każdym cyklu):
-      amplitude: FinProb — bieżąca siła oscylacji (reputacja)
-      budget:    Fin     — pozostały budżet (skończony!)
-      heat:      Fin     — skumulowane ciepło (entropia)
-      alive:     bool    — czy żywa
-
-    Z void_resonance.v: ResonantLocation
+    FROZEN: w_for, w_against, frequency
+    MUTABLE: amplitude, budget, heat, grace_remaining, alive
     """
     cell_id: int
     w_for: List[FinProb]
@@ -440,45 +404,48 @@ class ResonantCell:
     prediction: Bool3 = Bool3.BUnknown
     acc_for: Fin = field(default_factory=lambda: Fin(0))
     acc_against: Fin = field(default_factory=lambda: Fin(0))
+    grace_remaining: int = GRACE_TICKS  # FIX #6: grace period g_rho(pi)
 
     def spend(self, cost: Fin):
-        """
-        Wydaj budżet na operację WRITE. Generuj ciepło.
-        B = B' ⊕ h — conservation.
-        """
+        """Spend budget on a WRITE operation. B = B' + h."""
         actual = min(cost.val, self.budget.val)
         self.budget = Fin(self.budget.val - actual)
         self.heat = Fin(self.heat.val + actual)
+
+    def check_death(self):
+        """
+        FIX #6: Grace period g_rho(pi) — Paper S8.1.
+        A cell with budget=0 does not die immediately.
+        It survives GRACE_TICKS samples without refresh.
+        Enables metastable regime III and batched refresh.
+        When grace is exhausted -> sudden collapse (not gradual).
+        """
         if self.budget.val == 0:
-            self.alive = False
+            self.grace_remaining -= 1
+            if self.grace_remaining <= 0:
+                self.alive = False
 
     def can_afford(self, cost: int = 1) -> bool:
-        """READ: czy stać na operację?"""
+        """READ: can the cell afford an operation?"""
         return self.budget.val >= cost
 
 
 # =============================================================================
-# CZĘŚĆ 8: OPERACJE NA KOMÓRCE
+# PART 8: CELL OPERATIONS
 # =============================================================================
 
 def cell_forward(cell: ResonantCell, signals: List[FinProb]) -> Bool3:
     """
-    Forward pass: przetwórz sygnały przez komórkę.
-
-    Dla każdej cechy i:
-      - Czy signal[i] ≥ w_for[i]?   → dowód za BTrue (siła = w_for[i])
-      - Czy signal[i] ≥ w_against[i]? → dowód za BFalse (siła = w_against[i])
-
-    Akumuluj dowody (acc_for, acc_against). Porównaj → werdykt.
-
-    Każde porównanie i akumulacja KOSZTUJĄ budżet.
-    Wyczerpanie budżetu → BUnknown.
-
-    Z void_neural_theory.v: process_signal, verdict
+    Forward pass: process signals through the cell.
+    Each comparison and accumulation COSTS budget.
     """
-    if not cell.alive or cell.budget.val == 0:
+    if not cell.alive:
         cell.prediction = Bool3.BUnknown
-        cell.alive = cell.budget.val > 0
+        return Bool3.BUnknown
+
+    # Cell in grace period (budget=0) — returns BUnknown, does not process
+    if cell.budget.val == 0:
+        cell.prediction = Bool3.BUnknown
         return Bool3.BUnknown
 
     acc_for = Fin(0)
@@ -488,14 +455,12 @@ def cell_forward(cell: ResonantCell, signals: List[FinProb]) -> Bool3:
         if cell.budget.val == 0:
             break
 
-        # --- Dowód za BTrue ---
-        # Czy signal ≥ w_for? (le_fin: w_for.num ≤ signal.num?)
+        # --- Evidence for BTrue ---
         match_for, new_b, h = le_fin_b3(cell.w_for[i].num, signals[i].num, cell.budget)
         cell.budget = new_b
         cell.heat = add_heat(cell.heat, h)
 
         if match_for == Bool3.BTrue and cell.budget.val > 0:
-            # Akumuluj wagę jako dowód: acc_for += w_for[i].num
             acc_for, new_b, h = add_fin(acc_for, cell.w_for[i].num, cell.budget)
             cell.budget = new_b
             cell.heat = add_heat(cell.heat, h)
@@ -503,8 +468,7 @@ def cell_forward(cell: ResonantCell, signals: List[FinProb]) -> Bool3:
         if cell.budget.val == 0:
             break
 
-        # --- Dowód za BFalse ---
-        # Czy signal ≥ w_against? (BFalse AKTYWNIE CONTRIBUTES)
+        # --- Evidence for BFalse (BFalse ACTIVELY CONTRIBUTES) ---
         match_ag, new_b, h = le_fin_b3(cell.w_against[i].num, signals[i].num, cell.budget)
         cell.budget = new_b
         cell.heat = add_heat(cell.heat, h)
@@ -514,24 +478,21 @@ def cell_forward(cell: ResonantCell, signals: List[FinProb]) -> Bool3:
             cell.budget = new_b
             cell.heat = add_heat(cell.heat, h)
 
-    # --- Werdykt ---
     cell.acc_for = acc_for
     cell.acc_against = acc_against
 
     if cell.budget.val == 0:
         cell.prediction = Bool3.BUnknown
-        cell.alive = False
         return Bool3.BUnknown
 
-    # Porównaj acc_for i acc_against
+    # Compare acc_for vs acc_against
     cmp_result, new_b, h = le_fin_b3(acc_against, acc_for, cell.budget)
     cell.budget = new_b
     cell.heat = add_heat(cell.heat, h)
 
     if cmp_result == Bool3.BTrue:
-        # acc_for ≥ acc_against
         if acc_for.val == acc_against.val:
-            cell.prediction = Bool3.BUnknown  # Remis → niepewność (uczciwe)
+            cell.prediction = Bool3.BUnknown
         else:
             cell.prediction = Bool3.BTrue
     elif cmp_result == Bool3.BFalse:
@@ -539,30 +500,17 @@ def cell_forward(cell: ResonantCell, signals: List[FinProb]) -> Bool3:
     else:
         cell.prediction = Bool3.BUnknown
 
-    if cell.budget.val == 0:
-        cell.alive = False
-
     return cell.prediction
 
 
 # =============================================================================
-# CZĘŚĆ 9: ZESPÓŁ REZONANSOWY
+# PART 9: RESONANT ENSEMBLE
 # =============================================================================
 
 class ResonantEnsemble:
     """
-    Zespół Rezonansowy — sieć bez warstw.
-
-    Pula komórek z częstotliwościami. Dla każdego wejścia:
-    1. BOUNDARY: float → FinProb (transdukcja sensoryczna)
-    2. SEEK: znajdź komórki rezonujące z wejściem (dopasowanie częstotliwości)
-    3. FORWARD: forward pass przez rezonujące komórki
-    4. CASCADE: wzmocnij/tłum komórki na podstawie zgodności
-    5. VERDICT: głosowanie ważone amplitudą
-    6. LEARN: credit propagation (refund/drain)
-    7. DAMP: uniwersalny decay amplitudy
-
-    Z void_resonance.v: resonance_seek, write_amplify, write_apply_damping
+    Resonant Ensemble — layerless network.
+    SEEK -> FORWARD -> CASCADE -> VERDICT -> LEARN -> DAMP
     """
 
     def __init__(self, n_cells: int = N_CELLS, n_features: int = N_FEATURES,
@@ -570,7 +518,7 @@ class ResonantEnsemble:
                  seed: int = SEED):
         self.denom = denom
         self.n_features = n_features
-        self.tracker = ConservationTracker()
+        self.tracker = ConservationTracker(n_cells, initial_budget, ENVIRONMENT_POOL)
         self.sample_count = 0
         self.correct_count = 0
 
@@ -578,58 +526,35 @@ class ResonantEnsemble:
         self.cells: List[ResonantCell] = []
 
         for cell_id in range(n_cells):
-            # Zamrożone wagi — losowe FinProb
             w_for = [FinProb(Fin(rng.randint(1, denom - 1)), Fin(denom))
                      for _ in range(n_features)]
             w_against = [FinProb(Fin(rng.randint(1, denom - 1)), Fin(denom))
                          for _ in range(n_features)]
-
-            # Częstotliwość — losowa FinProb (zamrożona)
             frequency = FinProb(Fin(rng.randint(1, denom - 1)), Fin(denom))
-
-            # Amplituda — startuje od HALF
             amplitude = FinProb.half(denom)
-
-            # Budżet i ciepło
             budget = Fin(initial_budget)
             heat = Fin(0)
 
             cell = ResonantCell(
-                cell_id=cell_id,
-                w_for=w_for,
-                w_against=w_against,
-                frequency=frequency,
-                amplitude=amplitude,
-                budget=budget,
-                heat=heat,
-                alive=True
+                cell_id=cell_id, w_for=w_for, w_against=w_against,
+                frequency=frequency, amplitude=amplitude,
+                budget=budget, heat=heat, alive=True,
+                grace_remaining=GRACE_TICKS
             )
             self.cells.append(cell)
-            self.tracker.register_budget(initial_budget)
 
     def find_resonating(self, input_freq: FinProb,
                         threshold: Fin = Fin(RESONANCE_THRESHOLD)) -> List[ResonantCell]:
-        """
-        SEEK: znajdź komórki rezonujące z wejściem.
-
-        Komórka rezonuje jeśli |cell.frequency - input_freq| ≤ threshold.
-        Koszt: dist_fin (budżetowane) per komórkę.
-
-        Z void_resonance.v: write_frequency_match, write_find_resonant
-        """
+        """SEEK: find cells resonating with input. Cost: budgeted."""
         resonating = []
         for cell in self.cells:
-            if not cell.alive:
-                continue
-            if not cell.can_afford(2):
+            if not cell.alive or cell.budget.val < 2:
                 continue
 
-            # Odległość częstotliwości (budżetowane)
             dist, new_b, h = dist_fin(cell.frequency.num, input_freq.num, cell.budget)
             cell.budget = new_b
             cell.heat = add_heat(cell.heat, h)
 
-            # Czy w progu? (budżetowane)
             within, new_b, h = le_fin(dist, threshold, cell.budget)
             cell.budget = new_b
             cell.heat = add_heat(cell.heat, h)
@@ -641,16 +566,8 @@ class ResonantEnsemble:
 
     def cascade(self, resonating: List[ResonantCell]):
         """
-        CASCADE: rezonujące komórki wzajemnie się wzmacniają/tłumią.
-
-        Zgodność (obie BTrue lub obie BFalse) → wzmocnienie amplitudy.
-        Spór (BTrue vs BFalse) → tłumienie amplitudy.
-        BUnknown → brak interakcji (ignorancja jest niereaktywna).
-
-        Fuel pattern z Coq: max CASCADE_FUEL rund.
-        Koszt: każda komórka płaci za SWOJE interakcje (Naruszenie 7 naprawione).
-
-        Z void_resonance.v: write_amplify, write_cascade_step
+        CASCADE: resonating cells mutually reinforce/suppress each other.
+        Cost: each cell pays for ITS OWN interactions.
         """
         if len(resonating) < 2:
             return
@@ -669,13 +586,11 @@ class ResonantEnsemble:
                     cell_b = resonating[j]
                     if not cell_b.alive or cell_b.prediction == Bool3.BUnknown:
                         continue
-
-                    if not cell_a.can_afford(1) or not cell_b.can_afford(1):
+                    if cell_a.budget.val < 1 or cell_b.budget.val < 1:
                         continue
 
                     if cell_a.prediction == cell_b.prediction:
-                        # KONSTRUKTYWNY REZONANS — zgodność!
-                        # Wzmocnij amplitudy obu komórek
+                        # CONSTRUCTIVE RESONANCE
                         new_amp_a, new_b_a, h_a = boost_prob(
                             cell_a.amplitude, boost_amount, cell_a.budget)
                         cell_a.amplitude = new_amp_a
@@ -687,31 +602,27 @@ class ResonantEnsemble:
                         cell_b.amplitude = new_amp_b
                         cell_b.budget = new_b_b
                         cell_b.heat = add_heat(cell_b.heat, h_b)
-
                         changes += 1
                     else:
-                        # DESTRUKTYWNY REZONANS — spór!
-                        # Tłum amplitudy obu komórek
-                        cell_a.amplitude = decay_prob(cell_a.amplitude)
-                        cell_a.spend(Fin(1))  # koszt interakcji
+                        # DESTRUCTIVE RESONANCE — FIX #2: decay costs 1 tick
+                        new_amp_a, new_b_a, h_a = decay_prob(cell_a.amplitude, cell_a.budget)
+                        cell_a.amplitude = new_amp_a
+                        cell_a.budget = new_b_a
+                        cell_a.heat = add_heat(cell_a.heat, h_a)
 
-                        cell_b.amplitude = decay_prob(cell_b.amplitude)
-                        cell_b.spend(Fin(1))  # koszt interakcji
-
+                        new_amp_b, new_b_b, h_b = decay_prob(cell_b.amplitude, cell_b.budget)
+                        cell_b.amplitude = new_amp_b
+                        cell_b.budget = new_b_b
+                        cell_b.heat = add_heat(cell_b.heat, h_b)
                         changes += 1
 
             if changes == 0:
-                break  # Zbieżność — brak dalszych zmian
+                break
 
     def verdict(self, resonating: List[ResonantCell]) -> Tuple[Bool3, FinProb]:
         """
-        VERDICT: głosowanie ważone amplitudą.
-
-        Suma amplitud komórek głosujących za BTrue vs BFalse.
-        Wygrywa strona z większą łączną amplitudą.
-
-        Z void_neural_theory.v: verdict function
-        Koszt: każda komórka płaci 1 tick za oddanie głosu.
+        VERDICT: amplitude-weighted voting.
+        Each cell pays 1 tick to cast a vote.
         """
         sum_for = Fin(0)
         sum_against = Fin(0)
@@ -721,22 +632,22 @@ class ResonantEnsemble:
                 continue
 
             if cell.prediction == Bool3.BTrue:
-                if cell.can_afford(1):
+                if cell.budget.val > 0:
                     sum_for, new_b, h = add_fin(sum_for, cell.amplitude.num, cell.budget)
                     cell.budget = new_b
                     cell.heat = add_heat(cell.heat, h)
 
             elif cell.prediction == Bool3.BFalse:
-                if cell.can_afford(1):
+                if cell.budget.val > 0:
                     sum_against, new_b, h = add_fin(
                         sum_against, cell.amplitude.num, cell.budget)
                     cell.budget = new_b
                     cell.heat = add_heat(cell.heat, h)
 
-        # Porównaj — używamy budżetu "pierwszej żywej komórki" (koszt porównania)
+        # Compare sums — cost: budget of first available cell
         voter = None
         for c in resonating:
-            if c.alive and c.can_afford(1):
+            if c.alive and c.budget.val > 0:
                 voter = c
                 break
 
@@ -751,17 +662,23 @@ class ResonantEnsemble:
             if sum_for.val == sum_against.val:
                 return (Bool3.BUnknown, FinProb.half(self.denom))
             else:
-                # Confidence = proporcja sum_for do sumy
+                # FIX #4: Confidence computation is BOUNDARY.
+                # The multiplication and division on raw int below is NOT a VOID operation.
+                # This is inverse transduction: a VOID result (two Fin: sum_for, sum_against)
+                # is translated to FinProb for the external interface.
+                # Inside VOID the verdict is Bool3. Confidence is INTERPRETATION,
+                # not computation — just as raw_to_strength in void_sensory_transduction.v
+                # is BOUNDARY, so is this.
                 total = sum_for.val + sum_against.val
                 if total == 0:
                     conf = FinProb.half(self.denom)
                 else:
-                    # BOUNDARY calculation — wyliczanie confidence
                     conf_num = max(1, min(self.denom - 1,
                                           (sum_for.val * (self.denom - 1)) // total))
                     conf = FinProb(Fin(conf_num), Fin(self.denom))
                 return (Bool3.BTrue, conf)
         elif cmp == Bool3.BFalse:
+            # FIX #4: BOUNDARY — see above
             total = sum_for.val + sum_against.val
             if total == 0:
                 conf = FinProb.half(self.denom)
@@ -773,102 +690,95 @@ class ResonantEnsemble:
         else:
             return (Bool3.BUnknown, FinProb.half(self.denom))
 
-    def learn(self, resonating: List[ResonantCell], truth: Bool3,
-              ensemble_prediction: Bool3):
+    def learn(self, resonating: List[ResonantCell], truth: Bool3):
         """
-        LEARN: credit propagation — selekcja budżetowa.
-
-        Poprawna predykcja → REFUND (budget +=, amplitude boost)
-        Błędna predykcja → DRAIN (budget -=, amplitude decay)
-        BUnknown → brak kary/nagrody (uczciwe przyznanie się do niewiedzy)
-
-        Z void_credit_propagation.v: selective_refund
-        Z void_neural_theory.v: learn_from_truth
+        LEARN: credit propagation — budget selection.
+        FIX #1: Refunds come from ENVIRONMENT POOL, not from nothing.
         """
         for cell in resonating:
             if not cell.alive:
                 continue
 
             if cell.prediction == Bool3.BUnknown:
-                # Uczciwa niewiedza — brak konsekwencji budżetowych
-                # Ale amplituda i tak będzie decay (universal damping)
                 continue
 
             if cell.prediction == truth:
-                # POPRAWNA PREDYKCJA → refund!
-                refund = REFUND_AMOUNT
-                # Budżet rośnie. Cap = 2x INITIAL (dobre komórki prosperują, ale nie nieskończenie)
+                # CORRECT PREDICTION -> refund from environment pool
                 budget_cap = INITIAL_BUDGET * 2
-                new_budget_val = min(cell.budget.val + refund, budget_cap)
-                refund_actual = new_budget_val - cell.budget.val
-                cell.budget = Fin(new_budget_val)
-                self.tracker.register_budget(refund_actual)
+                space = budget_cap - cell.budget.val
+                requested = min(REFUND_AMOUNT, space)
+                actual_refund = self.tracker.refund(requested)  # FIX #1
+                cell.budget = Fin(cell.budget.val + actual_refund)
+                # Grace period renewed — cell "revived"
+                cell.grace_remaining = GRACE_TICKS
 
-                # Amplitude boost (budżetowane)
-                new_amp, new_b, h = boost_prob(
-                    cell.amplitude, Fin(AMPLITUDE_BOOST_NUM), cell.budget)
-                cell.amplitude = new_amp
-                cell.budget = new_b
-                cell.heat = add_heat(cell.heat, h)
+                # Amplitude boost (budgeted)
+                if cell.budget.val > 0:
+                    new_amp, new_b, h = boost_prob(
+                        cell.amplitude, Fin(AMPLITUDE_BOOST_NUM), cell.budget)
+                    cell.amplitude = new_amp
+                    cell.budget = new_b
+                    cell.heat = add_heat(cell.heat, h)
 
             else:
-                # BŁĘDNA PREDYKCJA → drain!
+                # INCORRECT PREDICTION -> drain
                 drain = min(DRAIN_AMOUNT, cell.budget.val)
                 cell.budget = Fin(cell.budget.val - drain)
                 cell.heat = Fin(cell.heat.val + drain)
 
-                # Amplitude decay (kara za błąd)
-                cell.amplitude = decay_prob(cell.amplitude)
-                cell.amplitude = decay_prob(cell.amplitude)  # Podwójny decay za błąd
-
-                if cell.budget.val == 0:
-                    cell.alive = False
+                # Amplitude decay (budgeted — FIX #2)
+                if cell.budget.val > 0:
+                    new_amp, new_b, h = decay_prob(cell.amplitude, cell.budget)
+                    cell.amplitude = new_amp
+                    cell.budget = new_b
+                    cell.heat = add_heat(cell.heat, h)
+                if cell.budget.val > 0:
+                    new_amp, new_b, h = decay_prob(cell.amplitude, cell.budget)
+                    cell.amplitude = new_amp
+                    cell.budget = new_b
+                    cell.heat = add_heat(cell.heat, h)
 
     def universal_damping(self):
         """
-        UNIVERSAL DAMPING: wszystkie amplitudy gasną.
-        Entropia jest nieuchronna — tylko aktywnie rezonujące komórki utrzymują siłę.
-
-        Z void_resonance.v: write_apply_damping
-        Z PDF sekcja 5.5: δ(n/d) = (n-1)/d
+        UNIVERSAL DAMPING: all amplitudes decay.
+        FIX #2: Costs 1 tick per cell (WRITE).
         """
         for cell in self.cells:
+            if cell.alive and cell.budget.val > 0:
+                new_amp, new_b, h = decay_prob(cell.amplitude, cell.budget)
+                cell.amplitude = new_amp
+                cell.budget = new_b
+                cell.heat = add_heat(cell.heat, h)
+
+    def check_deaths(self):
+        """FIX #6: Grace period — check collapse after grace exhaustion."""
+        for cell in self.cells:
             if cell.alive:
-                cell.amplitude = decay_prob(cell.amplitude)
+                cell.check_death()
 
     def process_sample(self, signals: List[FinProb], truth: Bool3) -> Bool3:
-        """
-        Przetwórz jeden sample: SEEK → FORWARD → CASCADE → VERDICT → LEARN.
-
-        Returns: predykcja zespołu.
-        """
+        """Process one sample: SEEK -> FORWARD -> CASCADE -> VERDICT -> LEARN."""
         self.sample_count += 1
 
-        # 1. Oblicz częstotliwość wejścia (BOUNDARY — dozwolone Python int)
         input_freq = compute_input_frequency(signals, self.denom)
-
-        # 2. SEEK: znajdź rezonujące komórki
         resonating = self.find_resonating(input_freq)
 
         if len(resonating) == 0:
             return Bool3.BUnknown
 
-        # 3. FORWARD: forward pass przez rezonujące komórki
         for cell in resonating:
             cell_forward(cell, signals)
 
-        # 4. CASCADE: wzajemne wzmacnianie/tłumienie
         self.cascade(resonating)
-
-        # 5. VERDICT: głosowanie
         prediction, confidence = self.verdict(resonating)
+        self.learn(resonating, truth)
 
-        # 6. LEARN: credit propagation
-        self.learn(resonating, truth, prediction)
-
-        # 7. UNIVERSAL DAMPING (co DAMPING_INTERVAL sampli)
+        # Universal damping every DAMPING_INTERVAL samples
         if self.sample_count % DAMPING_INTERVAL == 0:
             self.universal_damping()
+
+        # FIX #6: check grace period
+        self.check_deaths()
 
         if prediction == truth:
             self.correct_count += 1
@@ -876,11 +786,9 @@ class ResonantEnsemble:
         return prediction
 
     def alive_count(self) -> int:
-        """READ: ile komórek żyje?"""
         return sum(1 for c in self.cells if c.alive)
 
     def budget_stats(self) -> dict:
-        """READ: statystyki budżetu."""
         alive = [c for c in self.cells if c.alive]
         if not alive:
             return {"alive": 0, "avg_budget": 0, "avg_heat": 0, "avg_amp": 0}
@@ -893,152 +801,82 @@ class ResonantEnsemble:
 
 
 # =============================================================================
-# CZĘŚĆ 10: TRANSDUKCJA SENSORYCZNA (GRANICA — float dozwolony!)
+# PART 10: SENSORY TRANSDUCTION (BOUNDARY — float allowed!)
 # =============================================================================
 
 def quantize_feature(x_float: float, feat_min: float, feat_max: float,
                      d: int = DENOM) -> FinProb:
     """
-    BOUNDARY: konwersja float → FinProb.
-    Float żyje w "zewnętrznym świecie". VOID core nigdy nie widzi float.
-
-    Z void_sensory_transduction.v:
-      raw_to_strength(v, max) = (v+1, max+2)
-      External systems must convert their data to Fin BEFORE calling us.
-
-    Mapowanie: [feat_min, feat_max] → {1, 2, ..., d-1} / d
+    BOUNDARY: float -> FinProb conversion.
+    From void_sensory_transduction.v: raw_to_strength(v, max) = (v+1, max+2)
     """
     if feat_max == feat_min:
-        return FinProb(Fin(d // 2), Fin(d))  # Half jeśli brak zakresu
-
-    # Normalizuj do [0, 1]
+        return FinProb(Fin(d // 2), Fin(d))
     norm = (x_float - feat_min) / (feat_max - feat_min)
     norm = max(0.0, min(1.0, norm))
-
-    # Kwantyzuj do {0, 1, ..., d-2}
     v = int(round(norm * (d - 2)))
     v = max(0, min(d - 2, v))
-
-    # raw_to_strength: (v+1, d) — z void_sensory_transduction.v
     return FinProb(Fin(v + 1), Fin(d))
 
 
 def compute_input_frequency(signals: List[FinProb], d: int = DENOM) -> FinProb:
-    """
-    BOUNDARY: oblicz częstotliwość wejścia z sygnałów.
-
-    Prosta metryka: proporcja cech powyżej HALF.
-    Mapowana na skalę FinProb (1/d ... (d-1)/d).
-
-    To jest na GRANICY VOID — dozwolone Python int.
-    """
+    """BOUNDARY: compute input frequency from signals."""
     half = d // 2
     count_high = sum(1 for s in signals if s.num.val > half)
     total = len(signals)
-
     if total == 0:
         return FinProb.half(d)
-
-    # Skaluj count_high/total do {1, ..., d-1}
     freq_num = max(1, min(d - 1, round(count_high / total * (d - 2)) + 1))
     return FinProb(Fin(freq_num), Fin(d))
 
 
 def encode_label(y: int) -> Bool3:
-    """BOUNDARY: konwersja etykiety binarnej (0/1) → Bool3."""
     if y == 1:
         return Bool3.BTrue
     elif y == 0:
         return Bool3.BFalse
-    else:
-        return Bool3.BUnknown
-
-
-def decode_prediction(pred: Bool3) -> int:
-    """BOUNDARY: konwersja Bool3 → etykieta binarna."""
-    if pred == Bool3.BTrue:
-        return 1
-    elif pred == Bool3.BFalse:
-        return 0
-    else:
-        return -1  # BUnknown — brak pewności
+    return Bool3.BUnknown
 
 
 # =============================================================================
-# CZĘŚĆ 11: TRENING I EWALUACJA
+# PART 11: EVALUATION
 # =============================================================================
-
-def prepare_data(d: int = DENOM):
-    """
-    Załaduj Breast Cancer dataset i przekonwertuj na FinProb.
-    Float → FinProb na GRANICY. Wewnątrz VOID: czyste FinProb.
-    """
-    from sklearn.datasets import load_breast_cancer
-    from sklearn.model_selection import train_test_split
-
-    data = load_breast_cancer()
-    X, y = data.data, data.target
-
-    X_train, X_test, y_train, y_test = train_test_split(
-        X, y, test_size=0.2, random_state=SEED, stratify=y
-    )
-
-    # Oblicz min/max per cecha (z danych treningowych)
-    feat_mins = X_train.min(axis=0)
-    feat_maxs = X_train.max(axis=0)
-
-    # Konwertuj na FinProb
-    def to_signals(X_data):
-        signals_list = []
-        for row in X_data:
-            signals = [quantize_feature(row[i], feat_mins[i], feat_maxs[i], d)
-                       for i in range(len(row))]
-            signals_list.append(signals)
-        return signals_list
-
-    train_signals = to_signals(X_train)
-    test_signals = to_signals(X_test)
-    train_labels = [encode_label(int(yi)) for yi in y_train]
-    test_labels = [encode_label(int(yi)) for yi in y_test]
-
-    return train_signals, test_signals, train_labels, test_labels
-
 
 def evaluate(ensemble: ResonantEnsemble, signals_list: List[List[FinProb]],
              labels: List[Bool3]) -> float:
     """
-    Ewaluacja — predykcja BEZ zużywania budżetu komórek.
-    Ewaluacja to OBSERWACJA ZEWNĘTRZNA — nie należy do VOID core.
-    Tworzymy tymczasowe kopie budżetów, używamy ich, potem przywracamy.
+    ======================================================================
+    |  FIX #3: WARNING — THIS BLOCK DELIBERATELY VIOLATES THEOREM 7.4.  |
+    |                                                                     |
+    |  Theorem 7.4 states: there is no privileged external observer      |
+    |  who can examine the system without budget expenditure.             |
+    |  This function is EXACTLY such an observer.                        |
+    |                                                                     |
+    |  Every abs(), >=, += below is an operation that INSIDE VOID        |
+    |  would cost budget. Here it is free because this is BENCHMARKING — |
+    |  external verification, NOT part of the VOID system.               |
+    |                                                                     |
+    |  Pragmatically necessary. Theoretically impermissible.             |
+    |  DO NOT USE this function as a network component.                  |
+    ======================================================================
     """
-    import copy
-
     correct = 0
     total = 0
-
-    # Zachowaj stan komórek
-    saved_states = []
-    for c in ensemble.cells:
-        saved_states.append((c.budget, c.heat, c.amplitude, c.alive, c.prediction))
 
     for signals, truth in zip(signals_list, labels):
         input_freq = compute_input_frequency(signals, ensemble.denom)
 
-        # Proste głosowanie: dla każdej żywej rezonującej komórki,
-        # symuluj forward pass na KOPII
         votes_true = 0
         votes_false = 0
-        half = DENOM // 2
 
         for cell in ensemble.cells:
             if not cell.alive:
                 continue
-            # Sprawdź rezonans (READ — darmowe)
+            # Raw Python int — OUTSIDE VOID (see comment above)
             dist_val = abs(cell.frequency.num.val - input_freq.num.val)
             if dist_val > RESONANCE_THRESHOLD:
                 continue
 
-            # Symuluj forward pass bez kosztów (to jest obserwacja)
             acc_f = 0
             acc_a = 0
             for i in range(min(len(signals), len(cell.w_for))):
@@ -1064,166 +902,166 @@ def evaluate(ensemble: ResonantEnsemble, signals_list: List[List[FinProb]],
             correct += 1
         total += 1
 
-    # Przywróć stan komórek
-    for c, (b, h, a, al, p) in zip(ensemble.cells, saved_states):
-        c.budget = b
-        c.heat = h
-        c.amplitude = a
-        c.alive = al
-        c.prediction = p
-
     return correct / total if total > 0 else 0.0
 
 
-def train_epoch(ensemble: ResonantEnsemble, train_signals: List[List[FinProb]],
-                train_labels: List[Bool3], rng: random.Random) -> float:
-    """
-    Jedna epoka treningowa. Shuffle i przetwórz wszystkie sample.
-    Returns: accuracy na zbiorze treningowym.
-    """
+# =============================================================================
+# PART 12: TRAINING
+# =============================================================================
+
+def prepare_data(d: int = DENOM):
+    from sklearn.datasets import load_breast_cancer
+    from sklearn.model_selection import train_test_split
+
+    data = load_breast_cancer()
+    X, y = data.data, data.target
+    X_train, X_test, y_train, y_test = train_test_split(
+        X, y, test_size=0.2, random_state=SEED, stratify=y)
+
+    feat_mins = X_train.min(axis=0)
+    feat_maxs = X_train.max(axis=0)
+
+    def to_signals(X_data):
+        return [[quantize_feature(row[i], feat_mins[i], feat_maxs[i], d)
+                 for i in range(len(row))] for row in X_data]
+
+    train_signals = to_signals(X_train)
+    test_signals = to_signals(X_test)
+    train_labels = [encode_label(int(yi)) for yi in y_train]
+    test_labels = [encode_label(int(yi)) for yi in y_test]
+
+    return train_signals, test_signals, train_labels, test_labels
+
+
+def train_epoch(ensemble: ResonantEnsemble, train_signals, train_labels, rng):
     indices = list(range(len(train_signals)))
     rng.shuffle(indices)
-
     correct = 0
     total = 0
-
     for idx in indices:
         pred = ensemble.process_sample(train_signals[idx], train_labels[idx])
         if pred == train_labels[idx]:
             correct += 1
         total += 1
-
     return correct / total if total > 0 else 0.0
 
 
 # =============================================================================
-# CZĘŚĆ 12: MAIN — DEMO NA BREAST CANCER
+# PART 13: MAIN
 # =============================================================================
 
 def main():
-    print("=" * 70)
-    print("VOID RESONANT ENSEMBLE — Demo na Breast Cancer Dataset")
-    print("=" * 70)
+    print("=" * 72)
+    print("VOID RESONANT ENSEMBLE v2 — Breast Cancer Dataset")
+    print("=" * 72)
     print()
-    print(f"Parametry VOID:")
-    print(f"  D(ρ) = {DENOM} (denominator cap)")
-    print(f"  N_CELLS = {N_CELLS}")
-    print(f"  INITIAL_BUDGET = {INITIAL_BUDGET}")
-    print(f"  REFUND = {REFUND_AMOUNT}")
-    print(f"  DRAIN = {DRAIN_AMOUNT}")
-    print(f"  RESONANCE_THRESHOLD = {RESONANCE_THRESHOLD}")
-    print(f"  CASCADE_FUEL = {CASCADE_FUEL}")
+    print(f"  D(rho)           = {DENOM}")
+    print(f"  N_CELLS          = {N_CELLS}")
+    print(f"  INITIAL_BUDGET   = {INITIAL_BUDGET:,}")
+    print(f"  ENVIRONMENT_POOL = {ENVIRONMENT_POOL:,}")
+    print(f"  REFUND / DRAIN   = {REFUND_AMOUNT} / {DRAIN_AMOUNT}")
+    print(f"  GRACE_TICKS      = {GRACE_TICKS}")
+    print(f"  CASCADE_FUEL     = {CASCADE_FUEL}")
     print()
 
-    # Przygotuj dane
-    print("Transdukcja sensoryczna (float → FinProb na GRANICY)...")
+    print("Sensory transduction (float -> FinProb at BOUNDARY)...")
     train_signals, test_signals, train_labels, test_labels = prepare_data(DENOM)
-    print(f"  Train: {len(train_signals)} samples, Test: {len(test_signals)} samples")
-    print(f"  Sygnał przykładowy: {train_signals[0][:3]}...")
+    print(f"  Train: {len(train_signals)}, Test: {len(test_signals)}")
     print()
 
-    # Inicjalizacja zespołu
-    print("Inicjalizacja Zespołu Rezonansowego...")
+    print("Initializing Resonant Ensemble...")
     ensemble = ResonantEnsemble(
         n_cells=N_CELLS, n_features=N_FEATURES,
-        denom=DENOM, initial_budget=INITIAL_BUDGET, seed=SEED
-    )
-    print(f"  {ensemble.alive_count()} komórek żywych")
-    stats = ensemble.budget_stats()
-    print(f"  Śr. budżet: {stats['avg_budget']:.0f}, Śr. amplituda: {stats['avg_amp']:.1f}")
+        denom=DENOM, initial_budget=INITIAL_BUDGET, seed=SEED)
+    print(f"  {ensemble.alive_count()} cells alive")
     print()
 
-    # Trening
     rng = random.Random(SEED)
     n_epochs = 30
     best_test_acc = 0.0
 
-    print("TRENING:")
-    print("-" * 70)
-    print(f"{'Epoka':>6} | {'Train Acc':>10} | {'Test Acc':>10} | {'Żywe':>6} | "
-          f"{'Śr.Budżet':>10} | {'Śr.Amp':>8}")
-    print("-" * 70)
+    print("TRAINING:")
+    print("-" * 72)
+    print(f"{'Epoch':>6} | {'Train':>8} | {'Test':>8} | {'Alive':>5} | "
+          f"{'Avg Budget':>12} | {'Avg Amp':>7} | {'Env Pool':>12}")
+    print("-" * 72)
 
     for epoch in range(1, n_epochs + 1):
-        # Trening
         train_acc = train_epoch(ensemble, train_signals, train_labels, rng)
 
-        # Ewaluacja
-        # (oszczędzamy budżet — ewaluacja co kilka epok)
         if epoch % 3 == 0 or epoch <= 3 or epoch == n_epochs:
             test_acc = evaluate(ensemble, test_signals, test_labels)
             best_test_acc = max(best_test_acc, test_acc)
         else:
-            test_acc = -1  # Pominięto
+            test_acc = -1
 
         stats = ensemble.budget_stats()
         alive = ensemble.alive_count()
+        test_str = f"{test_acc:.2%}" if test_acc >= 0 else "    --"
 
-        test_str = f"{test_acc:.2%}" if test_acc >= 0 else "    —"
-        print(f"{epoch:>6} | {train_acc:>10.2%} | {test_str:>10} | {alive:>6} | "
-              f"{stats['avg_budget']:>10.0f} | {stats['avg_amp']:>8.1f}")
+        print(f"{epoch:>6} | {train_acc:>8.2%} | {test_str:>8} | {alive:>5} | "
+              f"{stats['avg_budget']:>12,.0f} | {stats['avg_amp']:>7.1f} | "
+              f"{ensemble.tracker.env_pool:>12,}")
 
-        # Jeśli wszystkie komórki umarły — koniec
         if alive == 0:
-            print("\n  *** Wszystkie komórki umarły — wyczerpanie budżetu ***")
+            print("\n  *** All cells have died ***")
             break
 
-    print("-" * 70)
-    print(f"\nNajlepsza accuracy na zbiorze testowym: {best_test_acc:.2%}")
+    print("-" * 72)
+    print(f"\nBest test set accuracy: {best_test_acc:.2%}")
 
-    # Weryfikacja aksjomatów
-    print("\n" + "=" * 70)
-    print("WERYFIKACJA AKSJOMATÓW VOID")
-    print("=" * 70)
+    # === AXIOM VERIFICATION ===
+    print("\n" + "=" * 72)
+    print("VOID AXIOM VERIFICATION")
+    print("=" * 72)
 
-    # 1. Conservation B = B' + h
-    alive_cells = [c for c in ensemble.cells if True]  # wszystkie, nie tylko żywe
-    total_budget = sum(c.budget.val for c in alive_cells)
-    total_heat = sum(c.heat.val for c in alive_cells)
-    print(f"\n1. Conservation B = B' ⊕ h:")
-    print(f"   Σ budget = {total_budget}")
-    print(f"   Σ heat   = {total_heat}")
-    print(f"   Σ (B+h)  = {total_budget + total_heat}")
-    print(f"   Total granted = {ensemble.tracker.total_granted}")
-    # Uwaga: conservation może nie się zgadzać dokładnie z powodu refundów
-    # (refundy dodają nowy budżet do systemu)
+    # 1. Conservation (FIX #1: with environment pool)
+    all_cells = ensemble.cells
+    total_budget = sum(c.budget.val for c in all_cells)
+    total_heat = sum(c.heat.val for c in all_cells)
+    env_remaining = ensemble.tracker.env_pool
+    total_system = total_budget + total_heat + env_remaining
+    expected = ensemble.tracker.CONST
+    conservation_ok = total_system == expected
 
-    # 2. FinProb ∈ (0, 1)
+    print(f"\n1. Conservation B_system + H + B_env = CONST (FIX #1):")
+    print(f"   Sum budget   = {total_budget:,}")
+    print(f"   Sum heat     = {total_heat:,}")
+    print(f"   Env pool     = {env_remaining:,}")
+    print(f"   Total        = {total_system:,}")
+    print(f"   Expected     = {expected:,}")
+    print(f"   {'OK' if conservation_ok else 'VIOLATION!'}")
+
+    # 2. FinProb in (0, 1)
     violations_01 = 0
-    for c in alive_cells:
+    for c in all_cells:
         if c.amplitude.num.val <= 0 or c.amplitude.num.val >= c.amplitude.den.val:
             violations_01 += 1
         for w in c.w_for + c.w_against:
             if w.num.val <= 0 or w.num.val >= w.den.val:
                 violations_01 += 1
-    print(f"\n2. FinProb ∈ (0, 1): {'OK' if violations_01 == 0 else f'{violations_01} NARUSZEŃ!'}")
+    print(f"\n2. FinProb in (0,1): {'OK' if violations_01 == 0 else f'{violations_01} VIOLATIONS!'}")
 
-    # 3. Brak float wewnątrz VOID core
-    print(f"\n3. Brak float wewnątrz VOID core: OK (architektura wymusza)")
-    print(f"   Typy wewnątrz: Fin, FinProb, Bool3 — brak float.")
+    # 3. No float
+    print(f"\n3. No float inside VOID core: OK (architecture enforced)")
 
-    # 4. Brak nieskończoności
-    print(f"\n4. Brak nieskończoności:")
-    print(f"   Fin: opakowany int, brak operatorów arytmetycznych.")
-    print(f"   Wszystkie operacje budżetowane: add_fin, le_fin, dist_fin...")
-    print(f"   Stały mianownik D(ρ) = {DENOM}: brak eksplozji mianowników.")
+    # 4. Cell stats
+    alive_c = [c for c in all_cells if c.alive]
+    dead_c = [c for c in all_cells if not c.alive]
+    grace_c = [c for c in alive_c if c.budget.val == 0]
+    print(f"\n4. Cells: alive={len(alive_c)}, dead={len(dead_c)}, "
+          f"in grace period={len(grace_c)}")
 
-    # 5. Statystyki komórek
-    print(f"\n5. Statystyki końcowe komórek:")
-    alive_c = [c for c in ensemble.cells if c.alive]
-    dead_c = [c for c in ensemble.cells if not c.alive]
-    print(f"   Żywe: {len(alive_c)}, Martwe: {len(dead_c)}")
-    if alive_c:
-        budgets = [c.budget.val for c in alive_c]
-        amps = [c.amplitude.num.val for c in alive_c]
-        print(f"   Budżet (żywe): min={min(budgets)}, max={max(budgets)}, "
-              f"avg={sum(budgets)/len(budgets):.0f}")
-        print(f"   Amplituda (żywe): min={min(amps)}, max={max(amps)}, "
-              f"avg={sum(amps)/len(amps):.1f}")
+    # 5. Fixes status
+    print(f"\n5. v2 fixes:")
+    print(f"   #1 Environment pool:      {env_remaining:,} remaining (started {ENVIRONMENT_POOL:,})")
+    print(f"   #2 decay_prob costs 1mu:  ACTIVE")
+    print(f"   #3 evaluate() Thm.7.4:    MARKED (see docstring)")
+    print(f"   #4 verdict confidence:    BOUNDARY (see comment)")
+    print(f"   #5 Structural entropy:    DOCUMENTED (D(rho)={DENOM} constant)")
+    print(f"   #6 Grace period:          g_rho = {GRACE_TICKS} ticks")
 
-    print("\n" + "=" * 70)
-    print("KONIEC DEMO")
-    print("=" * 70)
+    print("\n" + "=" * 72)
 
 
 if __name__ == "__main__":
