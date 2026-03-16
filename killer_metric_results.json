@@ -1,0 +1,102 @@
+{
+  "confidence_margin": "80/100",
+  "void_correct": 431,
+  "void_wrong": 27,
+  "void_unknown": 111,
+  "classical_accuracies": {
+    "LogReg": 541,
+    "DecTree": 531,
+    "SVM": 522,
+    "RandForest": 545
+  },
+  "killer_data": {
+    "LogReg": {
+      "wrong_on_unknown": 14,
+      "right_on_unknown": 97,
+      "total_unknown": 111,
+      "killer_pct": 12,
+      "model_total_wrong": 28,
+      "model_total_right": 541,
+      "concentration_pct": 50
+    },
+    "DecTree": {
+      "wrong_on_unknown": 15,
+      "right_on_unknown": 96,
+      "total_unknown": 111,
+      "killer_pct": 13,
+      "model_total_wrong": 38,
+      "model_total_right": 531,
+      "concentration_pct": 39
+    },
+    "SVM": {
+      "wrong_on_unknown": 22,
+      "right_on_unknown": 89,
+      "total_unknown": 111,
+      "killer_pct": 19,
+      "model_total_wrong": 47,
+      "model_total_right": 522,
+      "concentration_pct": 46
+    },
+    "RandForest": {
+      "wrong_on_unknown": 11,
+      "right_on_unknown": 100,
+      "total_unknown": 111,
+      "killer_pct": 9,
+      "model_total_wrong": 24,
+      "model_total_right": 545,
+      "concentration_pct": 45
+    }
+  },
+  "n_samples": 569,
+  "sweep_results": [
+    {
+      "margin": "51/100",
+      "correct": 499,
+      "wrong": 67,
+      "unknown": 3,
+      "cond_acc": 881
+    },
+    {
+      "margin": "55/100",
+      "correct": 490,
+      "wrong": 57,
+      "unknown": 22,
+      "cond_acc": 895
+    },
+    {
+      "margin": "60/100",
+      "correct": 482,
+      "wrong": 48,
+      "unknown": 39,
+      "cond_acc": 909
+    },
+    {
+      "margin": "65/100",
+      "correct": 474,
+      "wrong": 45,
+      "unknown": 50,
+      "cond_acc": 913
+    },
+    {
+      "margin": "70/100",
+      "correct": 461,
+      "wrong": 43,
+      "unknown": 65,
+      "cond_acc": 914
+    },
+    {
+      "margin": "75/100",
+      "correct": 451,
+      "wrong": 34,
+      "unknown": 84,
+      "cond_acc": 929
+    },
+    {
+      "margin": "80/100",
+      "correct": 431,
+      "wrong": 27,
+      "unknown": 111,
+      "cond_acc": 941
+    }
+  ]
+}

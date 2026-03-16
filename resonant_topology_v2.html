@@ -1,0 +1,497 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>VOID Resonant Ensemble — Topology v2</title>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+body{background:#000;color:#b0b4c0;font-family:'SF Mono','Fira Code','JetBrains Mono',monospace;overflow:hidden;width:100vw;height:100vh}
+canvas{display:block}
+#hud{position:fixed;top:16px;left:16px;z-index:10}
+#hud h1{font-size:13px;font-weight:300;letter-spacing:4px;text-transform:uppercase;color:rgba(200,210,230,0.35)}
+#hud h2{font-size:9px;font-weight:400;color:rgba(200,210,230,0.15);letter-spacing:1.5px;margin-top:3px}
+#stats{position:fixed;bottom:14px;left:16px;font-size:10px;color:rgba(200,210,230,0.2);letter-spacing:0.5px;z-index:10}
+#stats span{color:rgba(220,180,140,0.45);font-weight:600}
+#controls{position:fixed;bottom:14px;right:16px;font-size:9px;color:rgba(200,210,230,0.15);z-index:10}
+
+#panel{position:fixed;top:16px;right:16px;width:240px;background:rgba(0,0,0,0.85);
+border:1px solid rgba(200,180,140,0.12);border-radius:2px;padding:12px;
+opacity:0;transition:opacity 0.2s;pointer-events:none;z-index:100}
+#panel.visible{opacity:1;pointer-events:auto}
+#panel h3{font-size:10px;color:rgba(220,180,140,0.7);margin-bottom:6px;letter-spacing:2px;text-transform:uppercase}
+.ir{display:flex;justify-content:space-between;margin-bottom:2px;font-size:9px}
+.il{color:rgba(200,210,230,0.25)}.iv{color:rgba(220,210,200,0.7);font-weight:600}
+.ib{height:2px;background:rgba(200,180,140,0.06);border-radius:1px;margin:3px 0 5px;overflow:hidden}
+.ibf{height:100%;border-radius:1px}
+.id{height:1px;background:rgba(200,180,140,0.04);margin:5px 0}
+</style>
+</head>
+<body>
+<div id="hud"><h1>Resonant Ensemble</h1><h2>VOID Theory — Topology v2</h2></div>
+<div id="stats"></div>
+<div id="controls">drag rotate · scroll zoom · dblclick auto</div>
+<div id="panel">
+  <h3 id="pt">Cell</h3>
+  <div class="ir"><span class="il">Feature</span><span class="iv" id="pf"></span></div>
+  <div class="ir"><span class="il">Threshold</span><span class="iv" id="ph"></span></div>
+  <div class="ir"><span class="il">Polarity</span><span class="iv" id="pp"></span></div>
+  <div class="id"></div>
+  <div class="ir"><span class="il">Amplitude</span><span class="iv" id="pa"></span></div>
+  <div class="ib"><div class="ibf" id="pab" style="width:0%"></div></div>
+  <div class="ir"><span class="il">Accuracy</span><span class="iv" id="pc"></span></div>
+  <div class="ib"><div class="ibf" id="pcb" style="width:0%"></div></div>
+  <div class="id"></div>
+  <div class="ir"><span class="il">Budget</span><span class="iv" id="pb"></span></div>
+  <div class="ir"><span class="il">Heat</span><span class="iv" id="pe"></span></div>
+  <div class="ir"><span class="il">Correct/Wrong</span><span class="iv" id="ps"></span></div>
+</div>
+<canvas id="c"></canvas>
+<script>
+const DATA = {"cells":[{"id":0,"group":"POS","amplitude_n":1,"amplitude_d":1000,"budget":1992931,"heat":14569,"influential":false,"correct":150,"wrong":9275,"accuracy_n":150,"accuracy_d":9425,"w_for_n":[0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,3,0,0,0,0,0,0],"w_against_n":[0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,15,0,0,0,0,0,0],"w_denom":16},{"id":1,"group":"NEG","amplitude_n":999,"amplitude_d":1000,"budget":2449021,"heat":14729,"influential":true,"correct":9275,"wrong":150,"accuracy_n":9275,"accuracy_d":9425,"w_for_n":[0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,3,0,0,0,0,0,0],"w_against_n":[0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,15,0,0,0,0,0,0],"w_denom":16},{"id":2,"group":"POS","amplitude_n":9,"amplitude_d":1000,"budget":2136358,"heat":19892,"influential":false,"correct":3125,"wrong":9400,"accuracy_n":3125,"accuracy_d":12525,"w_for_n":[0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,6,0,0,0,0,0,0],"w_against_n":[0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,15,0,0,0,0,0,0],"w_denom":16},{"id":3,"group":"NEG","amplitude_n":988,"amplitude_d":1000,"budget":2446009,"heat":23991,"influential":true,"correct":9400,"wrong":3125,"accuracy_n":9400,"accuracy_d":12525,"w_for_n":[0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,6,0,0,0,0,0,0],"w_against_n":[0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,15,0,0,0,0,0,0],"w_denom":16},{"id":9,"group":"NEG","amplitude_n":999,"amplitude_d":1000,"budget":2332773,"heat":14727,"influential":true,"correct":6950,"wrong":150,"accuracy_n":6950,"accuracy_d":7100,"w_for_n":[0,0,0,3,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0],"w_against_n":[0,0,0,15,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0],"w_denom":16},{"id":11,"group":"NEG","amplitude_n":999,"amplitude_d":1000,"budget":2456137,"heat":21363,"influential":true,"correct":9550,"wrong":2325,"accuracy_n":9550,"accuracy_d":11875,"w_for_n":[0,0,0,6,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0],"w_against_n":[0,0,0,15,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0],"w_denom":16},{"id":17,"group":"NEG","amplitude_n":997,"amplitude_d":1000,"budget":2297406,"heat":15094,"influential":true,"correct":6250,"wrong":275,"accuracy_n":6250,"accuracy_d":6525,"w_for_n":[0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,3,0,0,0,0,0,0,0],"w_against_n":[0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,15,0,0,0,0,0,0,0],"w_denom":16},{"id":19,"group":"NEG","amplitude_n":999,"amplitude_d":1000,"budget":2509399,"heat":16851,"influential":true,"correct":10525,"wrong":875,"accuracy_n":10525,"accuracy_d":11400,"w_for_n":[0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,6,0,0,0,0,0,0,0],"w_against_n":[0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,15,0,0,0,0,0,0,0],"w_denom":16},{"id":25,"group":"NEG","amplitude_n":985,"amplitude_d":1000,"budget":2430803,"heat":22947,"influential":true,"correct":9075,"wrong":3325,"accuracy_n":9075,"accuracy_d":12400,"w_for_n":[0,0,0,0,0,0,0,0,0,0,0,0,0,3,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0],"w_against_n":[0,0,0,0,0,0,0,0,0,0,0,0,0,15,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0],"w_denom":16},{"id":33,"group":"NEG","amplitude_n":993,"amplitude_d":1000,"budget":2265578,"heat":18172,"influential":true,"correct":5675,"wrong":1375,"accuracy_n":5675,"accuracy_d":7050,"w_for_n":[0,0,3,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0],"w_against_n":[0,0,15,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0],"w_denom":16},{"id":35,"group":"NEG","amplitude_n":999,"amplitude_d":1000,"budget":2484036,"heat":15964,"influential":true,"correct":10000,"wrong":575,"accuracy_n":10000,"accuracy_d":10575,"w_for_n":[0,0,6,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0],"w_against_n":[0,0,15,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0],"w_denom":16},{"id":41,"group":"NEG","amplitude_n":997,"amplitude_d":1000,"budget":2288371,"heat":15379,"influential":true,"correct":6075,"wrong":375,"accuracy_n":6075,"accuracy_d":6450,"w_for_n":[0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,3,0,0,0,0,0,0,0,0,0],"w_against_n":[0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,15,0,0,0,0,0,0,0,0,0],"w_denom":16},{"id":43,"group":"NEG","amplitude_n":999,"amplitude_d":1000,"budget":2518310,"heat":16690,"influential":true,"correct":10700,"wrong":825,"accuracy_n":10700,"accuracy_d":11525,"w_for_n":[0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,6,0,0,0,0,0,0,0,0,0],"w_against_n":[0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,15,0,0,0,0,0,0,0,0,0],"w_denom":16},{"id":51,"group":"NEG","amplitude_n":999,"amplitude_d":1000,"budget":2337238,"heat":19012,"influential":true,"correct":7125,"wrong":1625,"accuracy_n":7125,"accuracy_d":8750,"w_for_n":[0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,6,0,0,0,0,0,0,0,0],"w_against_n":[0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,15,0,0,0,0,0,0,0,0],"w_denom":16},{"id":57,"group":"NEG","amplitude_n":993,"amplitude_d":1000,"budget":2257909,"heat":19591,"influential":true,"correct":5550,"wrong":1925,"accuracy_n":5550,"accuracy_d":7475,"w_for_n":[3,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0],"w_against_n":[15,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0],"w_denom":16},{"id":59,"group":"NEG","amplitude_n":999,"amplitude_d":1000,"budget":2460359,"heat":15891,"influential":true,"correct":9525,"wrong":550,"accuracy_n":9525,"accuracy_d":10075,"w_for_n":[6,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0],"w_against_n":[15,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0],"w_denom":16},{"id":61,"group":"NEG","amplitude_n":804,"amplitude_d":1000,"budget":2434475,"heat":26775,"influential":true,"correct":9225,"wrong":3475,"accuracy_n":9225,"accuracy_d":12700,"w_for_n":[10,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0],"w_against_n":[15,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0],"w_denom":16}],"feature_names":["mean radius","mean texture","mean perimeter","mean area","mean smoothness","mean compactness","mean concavity","mean concave points","mean symmetry","mean fractal dimension","radius error","texture error","perimeter error","area error","smoothness error","compactness error","concavity error","concave points error","symmetry error","fractal dimension error","worst radius","worst texture","worst perimeter","worst area","worst smoothness","worst compactness","worst concavity","worst concave points","worst symmetry","worst fractal dimension"],"mi_ranking":[23,3,22,13,2,20,21,0],"accuracy_n":501,"accuracy_d":569};
+
+const cv = document.getElementById('c');
+const cx = cv.getContext('2d');
+let W, H, dpr;
+function resize(){
+  dpr = devicePixelRatio;
+  W = innerWidth; H = innerHeight;
+  cv.width = W*dpr; cv.height = H*dpr;
+  cv.style.width = W+'px'; cv.style.height = H+'px';
+  cx.setTransform(dpr,0,0,dpr,0,0);
+}
+addEventListener('resize', resize); resize();
+
+// ---- Seeded RNG ----
+const RNG = (function(s){return function(){s=s*16807%2147483647;return(s-1)/2147483646;}})(1337);
+
+// ---- Process influential cells only (the 15 survivors) ----
+const fn = DATA.feature_names;
+const tf = DATA.mi_ranking;
+const thresholds = [3,6,10,13];
+
+const cells = DATA.cells.map(c => {
+  let wf=-1, thr=0;
+  for(let i=0;i<c.w_against_n.length;i++) if(c.w_against_n[i]>0){wf=i;thr=c.w_for_n[i];break;}
+  const fr = tf.indexOf(wf);
+  return {...c, wf, fr, thr, fn: fn[wf]||'?',
+    amp: c.amplitude_n/c.amplitude_d,
+    acc: c.accuracy_n/Math.max(1,c.accuracy_d)};
+});
+
+// ---- 3D positions: organic, asymmetric layout ----
+// Instead of rigid octagonal rings, place cells in a flowing organic form
+// Use feature index as angular position, threshold as depth/spread
+const baseSpread = 4.0;
+
+function cellPos3D(cell, idx) {
+  // Base angle from feature, with organic offset
+  const angle = (cell.fr / 8) * Math.PI * 2 - Math.PI * 0.4;
+  const thrIdx = thresholds.indexOf(cell.thr);
+  // Spiral outward with threshold
+  const r = 1.8 + thrIdx * 1.1 + cell.acc * 0.8;
+  // Y position: accuracy pushes upward, low-acc sinks
+  const y = (cell.acc - 0.7) * 5.0 + (thrIdx - 1.5) * 0.8;
+  const x = Math.cos(angle) * r + Math.sin(idx * 1.7) * 0.5;
+  const z = Math.sin(angle) * r + Math.cos(idx * 2.3) * 0.5;
+  return [x, y, z];
+}
+
+cells.forEach((c,i) => { c.pos = cellPos3D(c,i); });
+
+// ---- Color palette: warm organics (cream, salmon, gold, rose) ----
+function cellColor(acc, amp) {
+  // Warm palette inspired by the reference images
+  if(acc >= 0.95) return {r:255, g:235, b:200}; // cream-white
+  if(acc >= 0.9)  return {r:240, g:200, b:160}; // gold
+  if(acc >= 0.8)  return {r:220, g:160, b:140}; // salmon
+  return {r:200, g:130, b:130}; // rose
+}
+
+// ---- Generate massive particle systems ----
+
+// 1. FIBER STREAMS: long curved particle trails between connected cells
+const fibers = [];
+
+function bezierPoint(p0, p1, p2, p3, t) {
+  const u = 1-t;
+  return [
+    u*u*u*p0[0] + 3*u*u*t*p1[0] + 3*u*t*t*p2[0] + t*t*t*p3[0],
+    u*u*u*p0[1] + 3*u*u*t*p1[1] + 3*u*t*t*p2[1] + t*t*t*p3[1],
+    u*u*u*p0[2] + 3*u*u*t*p1[2] + 3*u*t*t*p2[2] + t*t*t*p3[2]
+  ];
+}
+
+// Create fiber streams between each pair of influential cells
+for(let i=0; i<cells.length; i++){
+  for(let j=i+1; j<cells.length; j++){
+    const a = cells[i], b = cells[j];
+    // Connection strength: shared feature = strong, same threshold = medium
+    const shared = a.wf === b.wf;
+    const sameThr = a.thr === b.thr;
+    const strength = shared ? 1.0 : sameThr ? 0.5 : 0.15;
+    const fiberCount = shared ? 8 : sameThr ? 4 : 1;
+
+    for(let f=0; f<fiberCount; f++){
+      // Create bezier control points with organic sway
+      const mid = [(a.pos[0]+b.pos[0])/2, (a.pos[1]+b.pos[1])/2, (a.pos[2]+b.pos[2])/2];
+      const sway = 0.5 + RNG() * 1.5;
+      const cp1 = [
+        mid[0] + (RNG()-0.5)*sway,
+        mid[1] + (RNG()-0.5)*sway + RNG()*0.8,
+        mid[2] + (RNG()-0.5)*sway
+      ];
+      const cp2 = [
+        mid[0] + (RNG()-0.5)*sway,
+        mid[1] + (RNG()-0.5)*sway - RNG()*0.8,
+        mid[2] + (RNG()-0.5)*sway
+      ];
+
+      // Sample points along the bezier
+      const pointCount = 15 + Math.floor(strength * 25);
+      const colA = cellColor(a.acc, a.amp);
+      const colB = cellColor(b.acc, b.amp);
+
+      for(let p=0; p<pointCount; p++){
+        const t = (p + RNG()*0.5) / pointCount;
+        const pos = bezierPoint(a.pos, cp1, cp2, b.pos, t);
+        // Add perpendicular jitter for fiber width
+        const jit = 0.02 + strength * 0.06;
+        pos[0] += (RNG()-0.5)*jit;
+        pos[1] += (RNG()-0.5)*jit;
+        pos[2] += (RNG()-0.5)*jit;
+
+        const cr = Math.round(colA.r + (colB.r-colA.r)*t);
+        const cg = Math.round(colA.g + (colB.g-colA.g)*t);
+        const cb = Math.round(colA.b + (colB.b-colA.b)*t);
+
+        const size = (0.3 + strength * 1.2) * (0.5 + RNG());
+        const alpha = (0.04 + strength * 0.18) * (0.5 + RNG()*0.5);
+
+        fibers.push({pos, size, alpha, cr, cg, cb, phase: RNG()*6.28, speed: 0.003+RNG()*0.01});
+      }
+    }
+  }
+}
+
+// 2. NODE HALOS: dense particle clouds around each cell (the "bokeh" orbs)
+const halos = [];
+cells.forEach(c => {
+  const col = cellColor(c.acc, c.amp);
+  const count = 60 + Math.floor(c.amp * 80);
+  for(let i=0; i<count; i++){
+    const theta = RNG()*Math.PI*2;
+    const phi = Math.acos(2*RNG()-1);
+    const r = 0.1 + RNG()*0.6 * (0.3 + c.amp*0.7);
+    const pos = [
+      c.pos[0] + Math.sin(phi)*Math.cos(theta)*r,
+      c.pos[1] + Math.sin(phi)*Math.sin(theta)*r*0.8,
+      c.pos[2] + Math.cos(phi)*r
+    ];
+    // Varied sizes: some tiny, some large bokeh-like
+    const isBokeh = RNG() < 0.15;
+    const size = isBokeh ? 2.0 + RNG()*4.0 : 0.3 + RNG()*1.2;
+    const alpha = isBokeh ? 0.03 + RNG()*0.06 : 0.08 + RNG()*0.25;
+    halos.push({pos, size, alpha, cr:col.r, cg:col.g, cb:col.b,
+      isBokeh, cellId:c.id, phase:RNG()*6.28, speed:0.006+RNG()*0.02});
+  }
+});
+
+// 3. AMBIENT MASS: thousands of tiny points forming the overall body shape
+const dust = [];
+for(let i=0; i<2000; i++){
+  // Distribute around the organic form
+  const pickCell = cells[Math.floor(RNG()*cells.length)];
+  const spread = 0.5 + RNG()*3.0;
+  const theta = RNG()*Math.PI*2;
+  const phi = Math.acos(2*RNG()-1);
+  const pos = [
+    pickCell.pos[0] + Math.sin(phi)*Math.cos(theta)*spread,
+    pickCell.pos[1] + Math.sin(phi)*Math.sin(theta)*spread*0.5,
+    pickCell.pos[2] + Math.cos(phi)*spread
+  ];
+  const distFromCenter = Math.sqrt(pos[0]*pos[0]+pos[1]*pos[1]+pos[2]*pos[2]);
+  const falloff = Math.max(0, 1 - distFromCenter/8);
+  const size = 0.2 + RNG()*0.6 * falloff;
+  const alpha = (0.01 + RNG()*0.04) * falloff;
+  // Warm dust tones
+  const warmth = RNG();
+  const cr = Math.round(180 + warmth*60);
+  const cg = Math.round(160 + warmth*40);
+  const cb = Math.round(140 + warmth*30);
+  dust.push({pos, size, alpha, cr, cg, cb, phase:RNG()*6.28, speed:0.001+RNG()*0.005});
+}
+
+// 4. TRAILING FILAMENTS: long organic strands extending from high-accuracy cells
+const filaments = [];
+cells.filter(c => c.acc > 0.9).forEach(c => {
+  const strandCount = 3 + Math.floor(RNG()*4);
+  for(let s=0; s<strandCount; s++){
+    // Random direction
+    let dx = (RNG()-0.5)*2, dy = (RNG()-0.5)*1.5, dz = (RNG()-0.5)*2;
+    const len = Math.sqrt(dx*dx+dy*dy+dz*dz);
+    dx/=len; dy/=len; dz/=len;
+
+    const length = 1.5 + RNG()*3.0;
+    const pointCount = 20 + Math.floor(RNG()*20);
+    const col = cellColor(c.acc, c.amp);
+
+    for(let p=0; p<pointCount; p++){
+      const t = p/pointCount;
+      const curl = t * 2.0; // Increasing curl along strand
+      const pos = [
+        c.pos[0] + dx*t*length + Math.sin(curl*3+s)*0.3*t,
+        c.pos[1] + dy*t*length + Math.cos(curl*2+s)*0.2*t,
+        c.pos[2] + dz*t*length + Math.sin(curl*4+s*2)*0.3*t
+      ];
+      const fadeout = 1 - t*t;
+      const size = (0.3 + RNG()*0.8) * fadeout;
+      const alpha = (0.05 + RNG()*0.12) * fadeout;
+      filaments.push({pos, size, alpha, cr:col.r, cg:col.g, cb:col.b,
+        phase:RNG()*6.28, speed:0.004+RNG()*0.012});
+    }
+  }
+});
+
+// ---- Camera ----
+let rotY = 0.6, rotX = 0.2;
+let zoom = 1.15;
+let autoRotate = true;
+let dragging = false, lastMx=0, lastMy=0;
+
+cv.addEventListener('mousedown', e=>{dragging=true;lastMx=e.clientX;lastMy=e.clientY;autoRotate=false;});
+addEventListener('mouseup', ()=>{dragging=false;});
+addEventListener('mousemove', e=>{
+  if(dragging){rotY+=(e.clientX-lastMx)*0.005;rotX+=(e.clientY-lastMy)*0.005;
+  rotX=Math.max(-1.2,Math.min(1.2,rotX));lastMx=e.clientX;lastMy=e.clientY;}
+});
+cv.addEventListener('wheel', e=>{e.preventDefault();zoom*=e.deltaY>0?0.95:1.05;zoom=Math.max(0.3,Math.min(3,zoom));},{passive:false});
+cv.addEventListener('dblclick', ()=>{autoRotate=true;});
+
+// Touch
+let lastTD=0;
+cv.addEventListener('touchstart',e=>{if(e.touches.length===1){dragging=true;lastMx=e.touches[0].clientX;lastMy=e.touches[0].clientY;autoRotate=false;}if(e.touches.length===2){const dx=e.touches[0].clientX-e.touches[1].clientX,dy=e.touches[0].clientY-e.touches[1].clientY;lastTD=Math.sqrt(dx*dx+dy*dy);}e.preventDefault();},{passive:false});
+cv.addEventListener('touchmove',e=>{if(e.touches.length===1&&dragging){rotY+=(e.touches[0].clientX-lastMx)*0.005;rotX+=(e.touches[0].clientY-lastMy)*0.005;rotX=Math.max(-1.2,Math.min(1.2,rotX));lastMx=e.touches[0].clientX;lastMy=e.touches[0].clientY;}if(e.touches.length===2){const dx=e.touches[0].clientX-e.touches[1].clientX,dy=e.touches[0].clientY-e.touches[1].clientY;const d=Math.sqrt(dx*dx+dy*dy);if(lastTD>0){zoom*=d/lastTD;zoom=Math.max(0.3,Math.min(3,zoom));}lastTD=d;}e.preventDefault();},{passive:false});
+cv.addEventListener('touchend',()=>{dragging=false;lastTD=0;});
+
+// ---- Projection ----
+function project(p){
+  let [x,y,z]=p;
+  let cY=Math.cos(rotY),sY=Math.sin(rotY);
+  let x1=x*cY-z*sY, z1=x*sY+z*cY;
+  let cX=Math.cos(rotX),sX=Math.sin(rotX);
+  let y1=y*cX-z1*sX, z2=y*sX+z1*cX;
+  const fov=7;
+  const sc=fov/(fov+z2)*Math.min(W,H)*0.09*zoom;
+  return [W/2+x1*sc, H/2+y1*sc, z2, sc];
+}
+
+// ---- Mouse hover ----
+let mx=-9999,my=-9999,hovered=null;
+cv.addEventListener('mousemove',e=>{if(!dragging){mx=e.clientX;my=e.clientY;}});
+
+function showPanel(c){
+  const p=document.getElementById('panel');p.classList.add('visible');
+  document.getElementById('pt').textContent=`Cell ${c.id} · ${c.group}`;
+  document.getElementById('pf').textContent=c.fn;
+  document.getElementById('ph').textContent=`${c.thr}/${c.w_denom}`;
+  document.getElementById('pp').textContent=c.group==='NEG'?'high \u2192 malignant':'high \u2192 benign';
+  document.getElementById('pa').textContent=`${c.amplitude_n}/${c.amplitude_d}`;
+  document.getElementById('pab').style.width=(c.amp*100)+'%';
+  document.getElementById('pab').style.background='rgba(220,180,140,0.6)';
+  const ap=c.acc*100;
+  document.getElementById('pc').textContent=`${c.accuracy_n}/${c.accuracy_d} (${Math.round(ap*10)/10}%)`;
+  document.getElementById('pcb').style.width=ap+'%';
+  const col=cellColor(c.acc,c.amp);
+  document.getElementById('pcb').style.background=`rgb(${col.r},${col.g},${col.b})`;
+  document.getElementById('pb').textContent=c.budget.toLocaleString();
+  document.getElementById('pe').textContent=c.heat.toLocaleString();
+  document.getElementById('ps').textContent=`${c.correct} / ${c.wrong}`;
+}
+
+// ---- Labels as visual texture (glitchy monospace) ----
+const labelData = cells.map(c => ({
+  pos: [c.pos[0]+(RNG()-0.5)*0.8, c.pos[1]-0.5-RNG()*0.5, c.pos[2]+(RNG()-0.5)*0.8],
+  text: c.fn.substring(0,12).toUpperCase(),
+  acc: c.acc, phase: RNG()*6.28
+}));
+
+// ---- Main render ----
+let t=0;
+function frame(){
+  t++;
+  if(autoRotate) rotY+=0.002;
+  cx.clearRect(0,0,W,H);
+
+  // Pure black background
+  cx.fillStyle='#000';
+  cx.fillRect(0,0,W,H);
+
+  // Collect all renderable items
+  const items = [];
+
+  // Dust
+  dust.forEach(d => {
+    const anim = Math.sin(t*d.speed+d.phase)*0.02;
+    const pos=[d.pos[0]+anim,d.pos[1]+Math.cos(t*d.speed*0.7+d.phase)*0.015,d.pos[2]];
+    const [sx,sy,sz,sc]=project(pos);
+    items.push({z:sz, draw:()=>{
+      const depthF=Math.max(0.1,Math.min(1,(4-sz)/8));
+      const r=Math.max(0.2,d.size*sc*0.06);
+      cx.fillStyle=`rgba(${d.cr},${d.cg},${d.cb},${d.alpha*depthF})`;
+      cx.beginPath();cx.arc(sx,sy,r,0,Math.PI*2);cx.fill();
+    }});
+  });
+
+  // Fibers
+  fibers.forEach(f => {
+    const anim=Math.sin(t*f.speed+f.phase);
+    const pos=[f.pos[0]+anim*0.02,f.pos[1]+Math.cos(t*f.speed*0.8+f.phase)*0.015,f.pos[2]+Math.sin(t*f.speed*1.2+f.phase)*0.02];
+    const [sx,sy,sz,sc]=project(pos);
+    items.push({z:sz, draw:()=>{
+      const depthF=Math.max(0.1,Math.min(1,(4-sz)/8));
+      const r=Math.max(0.2,f.size*sc*0.07);
+      cx.fillStyle=`rgba(${f.cr},${f.cg},${f.cb},${f.alpha*depthF*(0.7+anim*0.3)})`;
+      cx.beginPath();cx.arc(sx,sy,r,0,Math.PI*2);cx.fill();
+    }});
+  });
+
+  // Filaments
+  filaments.forEach(f => {
+    const anim=Math.sin(t*f.speed+f.phase);
+    const pos=[f.pos[0]+anim*0.03,f.pos[1]+Math.cos(t*f.speed*0.6+f.phase)*0.02,f.pos[2]];
+    const [sx,sy,sz,sc]=project(pos);
+    items.push({z:sz, draw:()=>{
+      const depthF=Math.max(0.1,Math.min(1,(4-sz)/8));
+      const r=Math.max(0.2,f.size*sc*0.07);
+      cx.fillStyle=`rgba(${f.cr},${f.cg},${f.cb},${f.alpha*depthF})`;
+      cx.beginPath();cx.arc(sx,sy,r,0,Math.PI*2);cx.fill();
+    }});
+  });
+
+  // Halos (including bokeh)
+  halos.forEach(h => {
+    const anim=Math.sin(t*h.speed+h.phase);
+    const pos=[h.pos[0]+anim*0.02,h.pos[1]+Math.cos(t*h.speed*0.9+h.phase)*0.02,h.pos[2]+Math.sin(t*h.speed*1.1+h.phase)*0.02];
+    const [sx,sy,sz,sc]=project(pos);
+    items.push({z:sz, draw:()=>{
+      const depthF=Math.max(0.1,Math.min(1,(4-sz)/8));
+      const r=Math.max(0.3,h.size*sc*0.08);
+      if(h.isBokeh){
+        // Large soft bokeh circle — stroke only, transparent
+        cx.strokeStyle=`rgba(${h.cr},${h.cg},${h.cb},${h.alpha*depthF*(0.6+anim*0.4)})`;
+        cx.lineWidth=0.8+depthF*0.5;
+        cx.beginPath();cx.arc(sx,sy,r,0,Math.PI*2);cx.stroke();
+        // Very faint fill
+        cx.fillStyle=`rgba(${h.cr},${h.cg},${h.cb},${h.alpha*depthF*0.15})`;
+        cx.beginPath();cx.arc(sx,sy,r,0,Math.PI*2);cx.fill();
+      } else {
+        cx.fillStyle=`rgba(${h.cr},${h.cg},${h.cb},${h.alpha*depthF})`;
+        cx.beginPath();cx.arc(sx,sy,r,0,Math.PI*2);cx.fill();
+      }
+    }});
+  });
+
+  // Cell cores — the main orbs
+  cells.forEach(c => {
+    const [sx,sy,sz,sc]=project(c.pos);
+    items.push({z:sz, draw:()=>{
+      const col=cellColor(c.acc,c.amp);
+      const isHov=hovered===c;
+      const breath=Math.sin(t*0.01+c.id*0.8)*2;
+      const r=6+c.amp*18+breath;
+
+      // Massive soft glow
+      const glowR=r*(isHov?7:5);
+      const glow=cx.createRadialGradient(sx,sy,r*0.15,sx,sy,glowR);
+      glow.addColorStop(0,`rgba(${col.r},${col.g},${col.b},${isHov?0.3:0.18})`);
+      glow.addColorStop(0.25,`rgba(${col.r},${col.g},${col.b},${isHov?0.12:0.06})`);
+      glow.addColorStop(0.6,`rgba(${col.r},${col.g},${col.b},${isHov?0.03:0.015})`);
+      glow.addColorStop(1,'rgba(0,0,0,0)');
+      cx.fillStyle=glow;
+      cx.beginPath();cx.arc(sx,sy,glowR,0,Math.PI*2);cx.fill();
+
+      // Core sphere with gradient
+      const core=cx.createRadialGradient(sx-r*0.3,sy-r*0.3,0,sx,sy,r);
+      core.addColorStop(0,`rgba(${Math.min(255,col.r+60)},${Math.min(255,col.g+60)},${Math.min(255,col.b+60)},0.95)`);
+      core.addColorStop(0.5,`rgba(${col.r},${col.g},${col.b},0.8)`);
+      core.addColorStop(1,`rgba(${Math.round(col.r*0.5)},${Math.round(col.g*0.5)},${Math.round(col.b*0.5)},0.4)`);
+      cx.fillStyle=core;
+      cx.beginPath();cx.arc(sx,sy,r,0,Math.PI*2);cx.fill();
+
+      // Specular
+      const hl=cx.createRadialGradient(sx-r*0.35,sy-r*0.4,0,sx,sy,r*0.7);
+      hl.addColorStop(0,'rgba(255,255,255,0.4)');
+      hl.addColorStop(0.5,'rgba(255,255,255,0.05)');
+      hl.addColorStop(1,'rgba(255,255,255,0)');
+      cx.fillStyle=hl;
+      cx.beginPath();cx.arc(sx,sy,r,0,Math.PI*2);cx.fill();
+
+      // Hover info
+      if(isHov){
+        cx.font='10px "SF Mono",monospace';
+        cx.fillStyle='rgba(240,230,220,0.85)';
+        cx.textAlign='center';
+        cx.fillText(`${Math.round(c.acc*1000)}‰`,sx,sy-r-10);
+        cx.fillStyle='rgba(240,230,220,0.4)';
+        cx.font='9px "SF Mono",monospace';
+        cx.fillText(c.fn,sx,sy-r-22);
+      }
+    }});
+  });
+
+  // Labels (as visual texture, slightly glitchy)
+  labelData.forEach(lb => {
+    const [sx,sy,sz]=project(lb.pos);
+    items.push({z:sz, draw:()=>{
+      const depthF=Math.max(0,Math.min(1,(3-sz)/6));
+      if(depthF<0.05) return;
+      const glitch=Math.sin(t*0.03+lb.phase)>0.85;
+      cx.font='8px "SF Mono",monospace';
+      cx.fillStyle=`rgba(200,190,180,${depthF*(glitch?0.25:0.08)})`;
+      cx.textAlign='left';
+      cx.fillText(lb.text,sx,sy);
+      // Border box like in reference images
+      const tw=cx.measureText(lb.text).width;
+      cx.strokeStyle=`rgba(200,190,180,${depthF*(glitch?0.2:0.04)})`;
+      cx.lineWidth=0.5;
+      cx.strokeRect(sx-3,sy-9,tw+6,12);
+      // Thin leader line downward
+      cx.beginPath();
+      cx.moveTo(sx+tw/2,sy+3);
+      cx.lineTo(sx+tw/2,sy+8+RNG()*6);
+      cx.stroke();
+    }});
+  });
+
+  // Sort all items by depth
+  items.sort((a,b) => b.z - a.z);
+
+  // Hit test
+  hovered=null;
+  cells.forEach(c=>{
+    const [sx,sy]=project(c.pos);
+    const r=8+c.amp*18;
+    const dx=sx-mx,dy=sy-my;
+    if(dx*dx+dy*dy<(r+12)*(r+12)) hovered=c;
+  });
+
+  // Draw all
+  items.forEach(item => item.draw());
+
+  // Panel
+  if(hovered) showPanel(hovered);
+  else document.getElementById('panel').classList.remove('visible');
+
+  requestAnimationFrame(frame);
+}
+
+// Stats
+const nA=cells.length;
+const ap=Math.round(DATA.accuracy_n*1000/DATA.accuracy_d);
+document.getElementById('stats').innerHTML=
+  `<span>${nA}</span> surviving cells · accuracy <span>${ap}‰</span> · Wisconsin Breast Cancer (n=569)`;
+
+frame();
+</script>
+</body>
+</html>

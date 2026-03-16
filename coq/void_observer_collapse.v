@@ -31,13 +31,13 @@ Fixpoint hash_fin_b (a b : Fin) (budget : Budget) : (Fin * Budget) :=
   match a, b, budget with
   | fz, _, _ => (b, budget)
   | _, fz, _ => (a, budget)
-  | _, _, fz => (fz, fz)  (* No budget *)
+  | _, _, fz => (fz, fz)
   | fs a', fs b', fs budget' => 
       match hash_fin_b a' b' budget' with
       | (h, b_rem) => 
           match b_rem with
           | fz => (h, fz)
-          | fs b'' => (fs (fs h), b'')  (* Double successor for mixing *)
+          | fs b'' => (fs (fs h), b'')
           end
       end
   end.
@@ -46,7 +46,7 @@ Fixpoint hash_fin_b (a b : Fin) (budget : Budget) : (Fin * Budget) :=
 Definition observation_teleport_b (p : Pattern) (obs : Observer) (b : Budget) 
   : (Pattern * Budget) :=
   match b with
-  | fz => (p, fz)  (* No budget - no collapse *)
+  | fz => (p, fz)
   | fs b' =>
       match hash_fin_b (sensitivity obs) (location p) b' with
       | (new_loc, b'') =>
@@ -71,7 +71,7 @@ Record EntangledObservers := {
   obs1 : Observer;
   obs2 : Observer;
   correlation : FinProb;
-  entangle_budget : Budget  (* Added budget field *)
+  entangle_budget : Budget
 }.
 
 (* Entangled observation with budget *)
@@ -132,10 +132,12 @@ Definition observer_field_b (center : Fin) (radius : Fin) (obs : Observer) (b : 
           match decay_fin_b sens1 b2 with
           | (sens2, b3) =>
               ([(center, obs);
-                (fs center, {| sensitivity := sens1; 
-                              obs_budget := obs_budget obs |});
+                (fs center, {| sensitivity := sens1;
+                               obs_budget := obs_budget obs;
+                               obs_heat := obs_heat obs |});
                 (fs (fs center), {| sensitivity := sens2;
-                                   obs_budget := obs_budget obs |})], b3)
+                                    obs_budget := obs_budget obs;
+                                    obs_heat := obs_heat obs |})], b3)
           end
       end
   end.
@@ -171,7 +173,8 @@ Definition observe_with_backaction_b (p : Pattern) (obs : Observer) (b : Budget)
       match add_fin (sensitivity obs) (fst (strength p)) b1 with
       | (new_sens, b2) =>
           (p', {| sensitivity := new_sens;
-                  obs_budget := obs_budget obs |}, b2)
+                  obs_budget := obs_budget obs;
+                  obs_heat := obs_heat obs |}, b2)
       end
   end.
 
@@ -185,7 +188,7 @@ Fixpoint zeno_observation_b (p : Pattern) (obs : Observer) (times : Fin) (b : Bu
       match observation_teleport_b p obs b' with
       | (p', b'') =>
           match fin_eq_b (location p) (location p') b'' with
-          | (true, b''') => (p, b''')  (* Pattern frozen by observation *)
+          | (true, b''') => (p, b''')
           | (false, b''') => zeno_observation_b p' obs t' b'''
           end
       end
@@ -197,7 +200,8 @@ Definition interfering_observers_b (obs1 obs2 : Observer) (b : Budget)
   match dist_fin_b (sensitivity obs1) (sensitivity obs2) b with
   | (new_sens, b') =>
       ({| sensitivity := new_sens;
-          obs_budget := obs_budget obs1 |}, b')  (* Take first observer's budget *)
+          obs_budget := obs_budget obs1;
+          obs_heat := obs_heat obs1 |}, b')
   end.
 
 (* Create observer network with budget *)
@@ -206,15 +210,27 @@ Definition observer_network_b (b : Budget) : (list Observer * Budget) :=
   | fz => ([], fz)
   | fs b1 =>
       match b1 with
-      | fz => ([{| sensitivity := fs fz; obs_budget := b1 |}], fz)
+      | fz => ([{| sensitivity := fs fz;
+                    obs_budget := b1;
+                    obs_heat := fz |}], fz)
       | fs b2 =>
           match b2 with
-          | fz => ([{| sensitivity := fs fz; obs_budget := b1 |};
-                    {| sensitivity := fs (fs (fs fz)); obs_budget := b1 |}], fz)
+          | fz => ([{| sensitivity := fs fz;
+                        obs_budget := b1;
+                        obs_heat := fz |};
+                    {| sensitivity := fs (fs (fs fz));
+                        obs_budget := b1;
+                        obs_heat := fz |}], fz)
           | fs b3 =>
-              ([{| sensitivity := fs fz; obs_budget := b1 |};
-                {| sensitivity := fs (fs (fs fz)); obs_budget := b1 |};
-                {| sensitivity := five; obs_budget := b1 |}], b3)
+              ([{| sensitivity := fs fz;
+                    obs_budget := b1;
+                    obs_heat := fz |};
+                {| sensitivity := fs (fs (fs fz));
+                    obs_budget := b1;
+                    obs_heat := fz |};
+                {| sensitivity := five;
+                    obs_budget := b1;
+                    obs_heat := fz |}], b3)
           end
       end
   end.

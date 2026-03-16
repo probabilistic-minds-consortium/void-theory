@@ -1,0 +1,480 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>VOID Resonant Ensemble — Topology</title>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+body{background:#040508;color:#b0b4c0;font-family:'SF Mono','Fira Code','JetBrains Mono',monospace;overflow:hidden;width:100vw;height:100vh}
+canvas{display:block}
+#hud{position:fixed;top:16px;left:16px;z-index:10}
+#hud h1{font-size:14px;font-weight:300;letter-spacing:3px;text-transform:uppercase;color:rgba(180,200,230,0.5)}
+#hud h2{font-size:9px;font-weight:400;color:rgba(180,200,230,0.2);letter-spacing:1px;margin-top:2px}
+#stats{position:fixed;bottom:14px;left:16px;font-size:10px;color:rgba(180,200,230,0.25);letter-spacing:0.5px;z-index:10}
+#stats span{color:rgba(100,200,255,0.5);font-weight:600}
+#controls{position:fixed;bottom:14px;right:16px;font-size:9px;color:rgba(180,200,230,0.2);z-index:10}
+
+#panel{position:fixed;top:16px;right:16px;width:260px;background:rgba(10,12,20,0.95);
+border:1px solid rgba(100,200,255,0.1);border-radius:8px;padding:14px;
+opacity:0;transition:opacity 0.15s;pointer-events:none;z-index:100;backdrop-filter:blur(6px)}
+#panel.visible{opacity:1;pointer-events:auto}
+#panel h3{font-size:11px;color:#64c8ff;margin-bottom:8px;letter-spacing:1px}
+.ir{display:flex;justify-content:space-between;margin-bottom:3px;font-size:10px}
+.il{color:#3a3d50}.iv{color:#d0d4e0;font-weight:600}
+.ib{height:3px;background:rgba(100,200,255,0.06);border-radius:2px;margin:4px 0 6px;overflow:hidden}
+.ibf{height:100%;border-radius:2px}
+.id{height:1px;background:rgba(100,200,255,0.04);margin:6px 0}
+</style>
+</head>
+<body>
+<div id="hud"><h1>Resonant Ensemble</h1><h2>VOID Theory — Thermodynamic Cell Topology</h2></div>
+<div id="stats"></div>
+<div id="controls">drag to rotate · scroll to zoom · double-click auto-rotate</div>
+<div id="panel">
+  <h3 id="pt">Cell</h3>
+  <div class="ir"><span class="il">Feature</span><span class="iv" id="pf">—</span></div>
+  <div class="ir"><span class="il">Threshold</span><span class="iv" id="ph">—</span></div>
+  <div class="ir"><span class="il">Polarity</span><span class="iv" id="pp">—</span></div>
+  <div class="id"></div>
+  <div class="ir"><span class="il">Amplitude</span><span class="iv" id="pa">—</span></div>
+  <div class="ib"><div class="ibf" id="pab" style="width:0%"></div></div>
+  <div class="ir"><span class="il">Accuracy</span><span class="iv" id="pc">—</span></div>
+  <div class="ib"><div class="ibf" id="pcb" style="width:0%"></div></div>
+  <div class="id"></div>
+  <div class="ir"><span class="il">Budget</span><span class="iv" id="pb">—</span></div>
+  <div class="ir"><span class="il">Heat</span><span class="iv" id="pe">—</span></div>
+  <div class="ir"><span class="il">Correct / Wrong</span><span class="iv" id="ps">—</span></div>
+</div>
+<canvas id="c"></canvas>
+<script>
+const DATA = {"cells":[{"id":0,"group":"POS","frequency_n":1,"frequency_d":2,"amplitude_n":1,"amplitude_d":1000,"budget":1992931,"heat":14569,"alive":true,"influential":false,"correct":150,"wrong":9275,"activations":14225,"accuracy_n":150,"accuracy_d":9425,"w_for_n":[0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,3,0,0,0,0,0,0],"w_against_n":[0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,15,0,0,0,0,0,0],"w_denom":16},{"id":1,"group":"NEG","frequency_n":1,"frequency_d":2,"amplitude_n":999,"amplitude_d":1000,"budget":2449021,"heat":14729,"alive":true,"influential":true,"correct":9275,"wrong":150,"activations":14225,"accuracy_n":9275,"accuracy_d":9425,"w_for_n":[0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,3,0,0,0,0,0,0],"w_against_n":[0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,15,0,0,0,0,0,0],"w_denom":16},{"id":2,"group":"POS","frequency_n":1,"frequency_d":2,"amplitude_n":9,"amplitude_d":1000,"budget":2136358,"heat":19892,"alive":true,"influential":false,"correct":3125,"wrong":9400,"activations":14225,"accuracy_n":3125,"accuracy_d":12525,"w_for_n":[0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,6,0,0,0,0,0,0],"w_against_n":[0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,15,0,0,0,0,0,0],"w_denom":16},{"id":3,"group":"NEG","frequency_n":1,"frequency_d":2,"amplitude_n":988,"amplitude_d":1000,"budget":2446009,"heat":23991,"alive":true,"influential":true,"correct":9400,"wrong":3125,"activations":14225,"accuracy_n":9400,"accuracy_d":12525,"w_for_n":[0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,6,0,0,0,0,0,0],"w_against_n":[0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,15,0,0,0,0,0,0],"w_denom":16},{"id":4,"group":"POS","frequency_n":1,"frequency_d":2,"amplitude_n":7,"amplitude_d":1000,"budget":2226280,"heat":22470,"alive":true,"influential":false,"correct":4975,"wrong":8975,"activations":14225,"accuracy_n":4975,"accuracy_d":13950,"w_for_n":[0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,10,0,0,0,0,0,0],"w_against_n":[0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,15,0,0,0,0,0,0],"w_denom":16},{"id":5,"group":"NEG","frequency_n":1,"frequency_d":2,"amplitude_n":1,"amplitude_d":1000,"budget":2422013,"heat":26737,"alive":true,"influential":false,"correct":8975,"wrong":4975,"activations":14225,"accuracy_n":8975,"accuracy_d":13950,"w_for_n":[0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,10,0,0,0,0,0,0],"w_against_n":[0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,15,0,0,0,0,0,0],"w_denom":16},{"id":6,"group":"POS","frequency_n":1,"frequency_d":2,"amplitude_n":5,"amplitude_d":1000,"budget":2239667,"heat":22833,"alive":true,"influential":false,"correct":5250,"wrong":8950,"activations":14225,"accuracy_n":5250,"accuracy_d":14200,"w_for_n":[0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,13,0,0,0,0,0,0],"w_against_n":[0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,15,0,0,0,0,0,0],"w_denom":16},{"id":7,"group":"NEG","frequency_n":1,"frequency_d":2,"amplitude_n":1,"amplitude_d":1000,"budget":2420954,"heat":26546,"alive":true,"influential":false,"correct":8950,"wrong":5250,"activations":14225,"accuracy_n":8950,"accuracy_d":14200,"w_for_n":[0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,13,0,0,0,0,0,0],"w_against_n":[0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,15,0,0,0,0,0,0],"w_denom":16},{"id":8,"group":"POS","frequency_n":1,"frequency_d":2,"amplitude_n":1,"amplitude_d":1000,"budget":1992933,"heat":14567,"alive":true,"influential":false,"correct":150,"wrong":6950,"activations":14225,"accuracy_n":150,"accuracy_d":7100,"w_for_n":[0,0,0,3,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0],"w_against_n":[0,0,0,15,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0],"w_denom":16},{"id":9,"group":"NEG","frequency_n":1,"frequency_d":2,"amplitude_n":999,"amplitude_d":1000,"budget":2332773,"heat":14727,"alive":true,"influential":true,"correct":6950,"wrong":150,"activations":14225,"accuracy_n":6950,"accuracy_d":7100,"w_for_n":[0,0,0,3,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0],"w_against_n":[0,0,0,15,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0],"w_denom":16},{"id":10,"group":"POS","frequency_n":1,"frequency_d":2,"amplitude_n":1,"amplitude_d":1000,"budget":2097643,"heat":18607,"alive":true,"influential":false,"correct":2325,"wrong":9550,"activations":14225,"accuracy_n":2325,"accuracy_d":11875,"w_for_n":[0,0,0,6,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0],"w_against_n":[0,0,0,15,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0],"w_denom":16},{"id":11,"group":"NEG","frequency_n":1,"frequency_d":2,"amplitude_n":999,"amplitude_d":1000,"budget":2456137,"heat":21363,"alive":true,"influential":true,"correct":9550,"wrong":2325,"activations":14225,"accuracy_n":9550,"accuracy_d":11875,"w_for_n":[0,0,0,6,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0],"w_against_n":[0,0,0,15,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0],"w_denom":16},{"id":12,"group":"POS","frequency_n":1,"frequency_d":2,"amplitude_n":7,"amplitude_d":1000,"budget":2221407,"heat":22343,"alive":true,"influential":false,"correct":4875,"wrong":9025,"activations":14225,"accuracy_n":4875,"accuracy_d":13900,"w_for_n":[0,0,0,10,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0],"w_against_n":[0,0,0,15,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0],"w_denom":16},{"id":13,"group":"NEG","frequency_n":1,"frequency_d":2,"amplitude_n":1,"amplitude_d":1000,"budget":2424353,"heat":26897,"alive":true,"influential":false,"correct":9025,"wrong":4875,"activations":14225,"accuracy_n":9025,"accuracy_d":13900,"w_for_n":[0,0,0,10,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0],"w_against_n":[0,0,0,15,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0],"w_denom":16},{"id":14,"group":"POS","frequency_n":1,"frequency_d":2,"amplitude_n":6,"amplitude_d":1000,"budget":2237238,"heat":22762,"alive":true,"influential":false,"correct":5200,"wrong":8975,"activations":14225,"accuracy_n":5200,"accuracy_d":14175,"w_for_n":[0,0,0,13,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0],"w_against_n":[0,0,0,15,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0],"w_denom":16},{"id":15,"group":"NEG","frequency_n":1,"frequency_d":2,"amplitude_n":1,"amplitude_d":1000,"budget":2422170,"heat":26580,"alive":true,"influential":false,"correct":8975,"wrong":5200,"activations":14225,"accuracy_n":8975,"accuracy_d":14175,"w_for_n":[0,0,0,13,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0],"w_against_n":[0,0,0,15,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0],"w_denom":16},{"id":16,"group":"POS","frequency_n":1,"frequency_d":2,"amplitude_n":1,"amplitude_d":1000,"budget":1998946,"heat":14804,"alive":true,"influential":false,"correct":275,"wrong":6250,"activations":14225,"accuracy_n":275,"accuracy_d":6525,"w_for_n":[0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,3,0,0,0,0,0,0,0],"w_against_n":[0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,15,0,0,0,0,0,0,0],"w_denom":16},{"id":17,"group":"NEG","frequency_n":1,"frequency_d":2,"amplitude_n":997,"amplitude_d":1000,"budget":2297406,"heat":15094,"alive":true,"influential":true,"correct":6250,"wrong":275,"activations":14225,"accuracy_n":6250,"accuracy_d":6525,"w_for_n":[0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,3,0,0,0,0,0,0,0],"w_against_n":[0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,15,0,0,0,0,0,0,0],"w_denom":16},{"id":18,"group":"POS","frequency_n":1,"frequency_d":2,"amplitude_n":1,"amplitude_d":1000,"budget":2027760,"heat":15990,"alive":true,"influential":false,"correct":875,"wrong":10525,"activations":14225,"accuracy_n":875,"accuracy_d":11400,"w_for_n":[0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,6,0,0,0,0,0,0,0],"w_against_n":[0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,15,0,0,0,0,0,0,0],"w_denom":16},{"id":19,"group":"NEG","frequency_n":1,"frequency_d":2,"amplitude_n":999,"amplitude_d":1000,"budget":2509399,"heat":16851,"alive":true,"influential":true,"correct":10525,"wrong":875,"activations":14225,"accuracy_n":10525,"accuracy_d":11400,"w_for_n":[0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,6,0,0,0,0,0,0,0],"w_against_n":[0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,15,0,0,0,0,0,0,0],"w_denom":16},{"id":20,"group":"POS","frequency_n":1,"frequency_d":2,"amplitude_n":8,"amplitude_d":1000,"budget":2193427,"heat":21573,"alive":true,"influential":false,"correct":4300,"wrong":9175,"activations":14225,"accuracy_n":4300,"accuracy_d":13475,"w_for_n":[0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,10,0,0,0,0,0,0,0],"w_against_n":[0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,15,0,0,0,0,0,0,0],"w_denom":16},{"id":21,"group":"NEG","frequency_n":1,"frequency_d":2,"amplitude_n":24,"amplitude_d":1000,"budget":2431574,"heat":27176,"alive":true,"influential":false,"correct":9175,"wrong":4300,"activations":14225,"accuracy_n":9175,"accuracy_d":13475,"w_for_n":[0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,10,0,0,0,0,0,0,0],"w_against_n":[0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,15,0,0,0,0,0,0,0],"w_denom":16},{"id":22,"group":"POS","frequency_n":1,"frequency_d":2,"amplitude_n":6,"amplitude_d":1000,"budget":2229951,"heat":22549,"alive":true,"influential":false,"correct":5050,"wrong":8950,"activations":14225,"accuracy_n":5050,"accuracy_d":14000,"w_for_n":[0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,13,0,0,0,0,0,0,0],"w_against_n":[0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,15,0,0,0,0,0,0,0],"w_denom":16},{"id":23,"group":"NEG","frequency_n":1,"frequency_d":2,"amplitude_n":1,"amplitude_d":1000,"budget":2420924,"heat":26576,"alive":true,"influential":false,"correct":8950,"wrong":5050,"activations":14225,"accuracy_n":8950,"accuracy_d":14000,"w_for_n":[0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,13,0,0,0,0,0,0,0],"w_against_n":[0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,15,0,0,0,0,0,0,0],"w_denom":16},{"id":24,"group":"POS","frequency_n":1,"frequency_d":2,"amplitude_n":9,"amplitude_d":1000,"budget":2145635,"heat":20615,"alive":true,"influential":false,"correct":3325,"wrong":9075,"activations":14225,"accuracy_n":3325,"accuracy_d":12400,"w_for_n":[0,0,0,0,0,0,0,0,0,0,0,0,0,3,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0],"w_against_n":[0,0,0,0,0,0,0,0,0,0,0,0,0,15,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0],"w_denom":16},{"id":25,"group":"NEG","frequency_n":1,"frequency_d":2,"amplitude_n":985,"amplitude_d":1000,"budget":2430803,"heat":22947,"alive":true,"influential":true,"correct":9075,"wrong":3325,"activations":14225,"accuracy_n":9075,"accuracy_d":12400,"w_for_n":[0,0,0,0,0,0,0,0,0,0,0,0,0,3,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0],"w_against_n":[0,0,0,0,0,0,0,0,0,0,0,0,0,15,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0],"w_denom":16},{"id":26,"group":"POS","frequency_n":1,"frequency_d":2,"amplitude_n":7,"amplitude_d":1000,"budget":2233441,"heat":22809,"alive":true,"influential":false,"correct":5125,"wrong":8975,"activations":14225,"accuracy_n":5125,"accuracy_d":14100,"w_for_n":[0,0,0,0,0,0,0,0,0,0,0,0,0,6,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0],"w_against_n":[0,0,0,0,0,0,0,0,0,0,0,0,0,15,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0],"w_denom":16},{"id":27,"group":"NEG","frequency_n":1,"frequency_d":2,"amplitude_n":1,"amplitude_d":1000,"budget":2421428,"heat":27322,"alive":true,"influential":false,"correct":8975,"wrong":5125,"activations":14225,"accuracy_n":8975,"accuracy_d":14100,"w_for_n":[0,0,0,0,0,0,0,0,0,0,0,0,0,6,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0],"w_against_n":[0,0,0,0,0,0,0,0,0,0,0,0,0,15,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0],"w_denom":16},{"id":28,"group":"POS","frequency_n":1,"frequency_d":2,"amplitude_n":4,"amplitude_d":1000,"budget":2239663,"heat":22837,"alive":true,"influential":false,"correct":5250,"wrong":8975,"activations":14225,"accuracy_n":5250,"accuracy_d":14225,"w_for_n":[0,0,0,0,0,0,0,0,0,0,0,0,0,10,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0],"w_against_n":[0,0,0,0,0,0,0,0,0,0,0,0,0,15,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0],"w_denom":16},{"id":29,"group":"NEG","frequency_n":1,"frequency_d":2,"amplitude_n":1,"amplitude_d":1000,"budget":2422162,"heat":26588,"alive":true,"influential":false,"correct":8975,"wrong":5250,"activations":14225,"accuracy_n":8975,"accuracy_d":14225,"w_for_n":[0,0,0,0,0,0,0,0,0,0,0,0,0,10,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0],"w_against_n":[0,0,0,0,0,0,0,0,0,0,0,0,0,15,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0],"w_denom":16},{"id":30,"group":"POS","frequency_n":1,"frequency_d":2,"amplitude_n":3,"amplitude_d":1000,"budget":2239668,"heat":22832,"alive":true,"influential":false,"correct":5250,"wrong":8975,"activations":14225,"accuracy_n":5250,"accuracy_d":14225,"w_for_n":[0,0,0,0,0,0,0,0,0,0,0,0,0,13,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0],"w_against_n":[0,0,0,0,0,0,0,0,0,0,0,0,0,15,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0],"w_denom":16},{"id":31,"group":"NEG","frequency_n":1,"frequency_d":2,"amplitude_n":1,"amplitude_d":1000,"budget":2422201,"heat":26549,"alive":true,"influential":false,"correct":8975,"wrong":5250,"activations":14225,"accuracy_n":8975,"accuracy_d":14225,"w_for_n":[0,0,0,0,0,0,0,0,0,0,0,0,0,13,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0],"w_against_n":[0,0,0,0,0,0,0,0,0,0,0,0,0,15,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0],"w_denom":16},{"id":32,"group":"POS","frequency_n":1,"frequency_d":2,"amplitude_n":1,"amplitude_d":1000,"budget":2051879,"heat":16871,"alive":true,"influential":false,"correct":1375,"wrong":5675,"activations":14225,"accuracy_n":1375,"accuracy_d":7050,"w_for_n":[0,0,3,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0],"w_against_n":[0,0,15,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0],"w_denom":16},{"id":33,"group":"NEG","frequency_n":1,"frequency_d":2,"amplitude_n":993,"amplitude_d":1000,"budget":2265578,"heat":18172,"alive":true,"influential":true,"correct":5675,"wrong":1375,"activations":14225,"accuracy_n":5675,"accuracy_d":7050,"w_for_n":[0,0,3,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0],"w_against_n":[0,0,15,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0],"w_denom":16},{"id":34,"group":"POS","frequency_n":1,"frequency_d":2,"amplitude_n":1,"amplitude_d":1000,"budget":2013343,"heat":15407,"alive":true,"influential":false,"correct":575,"wrong":10000,"activations":14225,"accuracy_n":575,"accuracy_d":10575,"w_for_n":[0,0,6,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0],"w_against_n":[0,0,15,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0],"w_denom":16},{"id":35,"group":"NEG","frequency_n":1,"frequency_d":2,"amplitude_n":999,"amplitude_d":1000,"budget":2484036,"heat":15964,"alive":true,"influential":true,"correct":10000,"wrong":575,"activations":14225,"accuracy_n":10000,"accuracy_d":10575,"w_for_n":[0,0,6,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0],"w_against_n":[0,0,15,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0],"w_denom":16},{"id":36,"group":"POS","frequency_n":1,"frequency_d":2,"amplitude_n":9,"amplitude_d":1000,"budget":2157043,"heat":20457,"alive":true,"influential":false,"correct":3550,"wrong":9200,"activations":14225,"accuracy_n":3550,"accuracy_d":12750,"w_for_n":[0,0,10,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0],"w_against_n":[0,0,15,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0],"w_denom":16},{"id":37,"group":"NEG","frequency_n":1,"frequency_d":2,"amplitude_n":79,"amplitude_d":1000,"budget":2433039,"heat":26961,"alive":true,"influential":false,"correct":9200,"wrong":3550,"activations":14225,"accuracy_n":9200,"accuracy_d":12750,"w_for_n":[0,0,10,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0],"w_against_n":[0,0,15,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0],"w_denom":16},{"id":38,"group":"POS","frequency_n":1,"frequency_d":2,"amplitude_n":7,"amplitude_d":1000,"budget":2228723,"heat":22527,"alive":true,"influential":false,"correct":5025,"wrong":9000,"activations":14225,"accuracy_n":5025,"accuracy_d":14025,"w_for_n":[0,0,13,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0],"w_against_n":[0,0,15,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0],"w_denom":16},{"id":39,"group":"NEG","frequency_n":1,"frequency_d":2,"amplitude_n":1,"amplitude_d":1000,"budget":2423275,"heat":26725,"alive":true,"influential":false,"correct":9000,"wrong":5025,"activations":14225,"accuracy_n":9000,"accuracy_d":14025,"w_for_n":[0,0,13,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0],"w_against_n":[0,0,15,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0],"w_denom":16},{"id":40,"group":"POS","frequency_n":1,"frequency_d":2,"amplitude_n":1,"amplitude_d":1000,"budget":2003746,"heat":15004,"alive":true,"influential":false,"correct":375,"wrong":6075,"activations":14225,"accuracy_n":375,"accuracy_d":6450,"w_for_n":[0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,3,0,0,0,0,0,0,0,0,0],"w_against_n":[0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,15,0,0,0,0,0,0,0,0,0],"w_denom":16},{"id":41,"group":"NEG","frequency_n":1,"frequency_d":2,"amplitude_n":997,"amplitude_d":1000,"budget":2288371,"heat":15379,"alive":true,"influential":true,"correct":6075,"wrong":375,"activations":14225,"accuracy_n":6075,"accuracy_d":6450,"w_for_n":[0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,3,0,0,0,0,0,0,0,0,0],"w_against_n":[0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,15,0,0,0,0,0,0,0,0,0],"w_denom":16},{"id":42,"group":"POS","frequency_n":1,"frequency_d":2,"amplitude_n":1,"amplitude_d":1000,"budget":2025353,"heat":15897,"alive":true,"influential":false,"correct":825,"wrong":10700,"activations":14225,"accuracy_n":825,"accuracy_d":11525,"w_for_n":[0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,6,0,0,0,0,0,0,0,0,0],"w_against_n":[0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,15,0,0,0,0,0,0,0,0,0],"w_denom":16},{"id":43,"group":"NEG","frequency_n":1,"frequency_d":2,"amplitude_n":999,"amplitude_d":1000,"budget":2518310,"heat":16690,"alive":true,"influential":true,"correct":10700,"wrong":825,"activations":14225,"accuracy_n":10700,"accuracy_d":11525,"w_for_n":[0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,6,0,0,0,0,0,0,0,0,0],"w_against_n":[0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,15,0,0,0,0,0,0,0,0,0],"w_denom":16},{"id":44,"group":"POS","frequency_n":1,"frequency_d":2,"amplitude_n":8,"amplitude_d":1000,"budget":2176462,"heat":21038,"alive":true,"influential":false,"correct":3950,"wrong":9200,"activations":14225,"accuracy_n":3950,"accuracy_d":13150,"w_for_n":[0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,10,0,0,0,0,0,0,0,0,0],"w_against_n":[0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,15,0,0,0,0,0,0,0,0,0],"w_denom":16},{"id":45,"group":"NEG","frequency_n":1,"frequency_d":2,"amplitude_n":43,"amplitude_d":1000,"budget":2432938,"heat":27062,"alive":true,"influential":false,"correct":9200,"wrong":3950,"activations":14225,"accuracy_n":9200,"accuracy_d":13150,"w_for_n":[0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,10,0,0,0,0,0,0,0,0,0],"w_against_n":[0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,15,0,0,0,0,0,0,0,0,0],"w_denom":16},{"id":46,"group":"POS","frequency_n":1,"frequency_d":2,"amplitude_n":6,"amplitude_d":1000,"budget":2228731,"heat":22519,"alive":true,"influential":false,"correct":5025,"wrong":8950,"activations":14225,"accuracy_n":5025,"accuracy_d":13975,"w_for_n":[0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,13,0,0,0,0,0,0,0,0,0],"w_against_n":[0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,15,0,0,0,0,0,0,0,0,0],"w_denom":16},{"id":47,"group":"NEG","frequency_n":1,"frequency_d":2,"amplitude_n":1,"amplitude_d":1000,"budget":2420909,"heat":26591,"alive":true,"influential":false,"correct":8950,"wrong":5025,"activations":14225,"accuracy_n":8950,"accuracy_d":13975,"w_for_n":[0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,13,0,0,0,0,0,0,0,0,0],"w_against_n":[0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,15,0,0,0,0,0,0,0,0,0],"w_denom":16},{"id":48,"group":"POS","frequency_n":1,"frequency_d":2,"amplitude_n":1,"amplitude_d":1000,"budget":2170386,"heat":20864,"alive":true,"influential":false,"correct":3825,"wrong":5375,"activations":14225,"accuracy_n":3825,"accuracy_d":9200,"w_for_n":[0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,3,0,0,0,0,0,0,0,0],"w_against_n":[0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,15,0,0,0,0,0,0,0,0],"w_denom":16},{"id":49,"group":"NEG","frequency_n":1,"frequency_d":2,"amplitude_n":35,"amplitude_d":1000,"budget":2245976,"heat":22774,"alive":true,"influential":false,"correct":5375,"wrong":3825,"activations":14225,"accuracy_n":5375,"accuracy_d":9200,"w_for_n":[0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,3,0,0,0,0,0,0,0,0],"w_against_n":[0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,15,0,0,0,0,0,0,0,0],"w_denom":16},{"id":50,"group":"POS","frequency_n":1,"frequency_d":2,"amplitude_n":1,"amplitude_d":1000,"budget":2063846,"heat":17404,"alive":true,"influential":false,"correct":1625,"wrong":7125,"activations":14225,"accuracy_n":1625,"accuracy_d":8750,"w_for_n":[0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,6,0,0,0,0,0,0,0,0],"w_against_n":[0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,15,0,0,0,0,0,0,0,0],"w_denom":16},{"id":51,"group":"NEG","frequency_n":1,"frequency_d":2,"amplitude_n":999,"amplitude_d":1000,"budget":2337238,"heat":19012,"alive":true,"influential":true,"correct":7125,"wrong":1625,"activations":14225,"accuracy_n":7125,"accuracy_d":8750,"w_for_n":[0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,6,0,0,0,0,0,0,0,0],"w_against_n":[0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,15,0,0,0,0,0,0,0,0],"w_denom":16},{"id":52,"group":"POS","frequency_n":1,"frequency_d":2,"amplitude_n":7,"amplitude_d":1000,"budget":2187291,"heat":21459,"alive":true,"influential":false,"correct":4175,"wrong":8575,"activations":14225,"accuracy_n":4175,"accuracy_d":12750,"w_for_n":[0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,10,0,0,0,0,0,0,0,0],"w_against_n":[0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,15,0,0,0,0,0,0,0,0],"w_denom":16},{"id":53,"group":"NEG","frequency_n":1,"frequency_d":2,"amplitude_n":77,"amplitude_d":1000,"budget":2402103,"heat":26647,"alive":true,"influential":false,"correct":8575,"wrong":4175,"activations":14225,"accuracy_n":8575,"accuracy_d":12750,"w_for_n":[0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,10,0,0,0,0,0,0,0,0],"w_against_n":[0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,15,0,0,0,0,0,0,0,0],"w_denom":16},{"id":54,"group":"POS","frequency_n":1,"frequency_d":2,"amplitude_n":6,"amplitude_d":1000,"budget":2233541,"heat":22709,"alive":true,"influential":false,"correct":5125,"wrong":8875,"activations":14225,"accuracy_n":5125,"accuracy_d":14000,"w_for_n":[0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,13,0,0,0,0,0,0,0,0],"w_against_n":[0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,15,0,0,0,0,0,0,0,0],"w_denom":16},{"id":55,"group":"NEG","frequency_n":1,"frequency_d":2,"amplitude_n":1,"amplitude_d":1000,"budget":2417077,"heat":26673,"alive":true,"influential":false,"correct":8875,"wrong":5125,"activations":14225,"accuracy_n":8875,"accuracy_d":14000,"w_for_n":[0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,13,0,0,0,0,0,0,0,0],"w_against_n":[0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,15,0,0,0,0,0,0,0,0],"w_denom":16},{"id":56,"group":"POS","frequency_n":1,"frequency_d":2,"amplitude_n":1,"amplitude_d":1000,"budget":2078422,"heat":17828,"alive":true,"influential":false,"correct":1925,"wrong":5550,"activations":14225,"accuracy_n":1925,"accuracy_d":7475,"w_for_n":[3,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0],"w_against_n":[15,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0],"w_denom":16},{"id":57,"group":"NEG","frequency_n":1,"frequency_d":2,"amplitude_n":993,"amplitude_d":1000,"budget":2257909,"heat":19591,"alive":true,"influential":true,"correct":5550,"wrong":1925,"activations":14225,"accuracy_n":5550,"accuracy_d":7475,"w_for_n":[3,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0],"w_against_n":[15,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0],"w_denom":16},{"id":58,"group":"POS","frequency_n":1,"frequency_d":2,"amplitude_n":1,"amplitude_d":1000,"budget":2012142,"heat":15358,"alive":true,"influential":false,"correct":550,"wrong":9525,"activations":14225,"accuracy_n":550,"accuracy_d":10075,"w_for_n":[6,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0],"w_against_n":[15,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0],"w_denom":16},{"id":59,"group":"NEG","frequency_n":1,"frequency_d":2,"amplitude_n":999,"amplitude_d":1000,"budget":2460359,"heat":15891,"alive":true,"influential":true,"correct":9525,"wrong":550,"activations":14225,"accuracy_n":9525,"accuracy_d":10075,"w_for_n":[6,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0],"w_against_n":[15,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0],"w_denom":16},{"id":60,"group":"POS","frequency_n":1,"frequency_d":2,"amplitude_n":9,"amplitude_d":1000,"budget":2153405,"heat":20345,"alive":true,"influential":false,"correct":3475,"wrong":9225,"activations":14225,"accuracy_n":3475,"accuracy_d":12700,"w_for_n":[10,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0],"w_against_n":[15,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0],"w_denom":16},{"id":61,"group":"NEG","frequency_n":1,"frequency_d":2,"amplitude_n":804,"amplitude_d":1000,"budget":2434475,"heat":26775,"alive":true,"influential":true,"correct":9225,"wrong":3475,"activations":14225,"accuracy_n":9225,"accuracy_d":12700,"w_for_n":[10,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0],"w_against_n":[15,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0],"w_denom":16},{"id":62,"group":"POS","frequency_n":1,"frequency_d":2,"amplitude_n":7,"amplitude_d":1000,"budget":2227503,"heat":22497,"alive":true,"influential":false,"correct":5000,"wrong":9000,"activations":14225,"accuracy_n":5000,"accuracy_d":14000,"w_for_n":[13,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0],"w_against_n":[15,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0],"w_denom":16},{"id":63,"group":"NEG","frequency_n":1,"frequency_d":2,"amplitude_n":1,"amplitude_d":1000,"budget":2423255,"heat":26745,"alive":true,"influential":false,"correct":9000,"wrong":5000,"activations":14225,"accuracy_n":9000,"accuracy_d":14000,"w_for_n":[13,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0],"w_against_n":[15,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0],"w_denom":16}],"epochs":[{"epoch":0,"accuracy_n":475,"accuracy_d":569,"alive":64,"high_amp":16,"unknown":1},{"epoch":1,"accuracy_n":496,"accuracy_d":569,"alive":64,"high_amp":16,"unknown":0},{"epoch":2,"accuracy_n":500,"accuracy_d":569,"alive":64,"high_amp":16,"unknown":0},{"epoch":3,"accuracy_n":499,"accuracy_d":569,"alive":64,"high_amp":16,"unknown":0},{"epoch":4,"accuracy_n":501,"accuracy_d":569,"alive":64,"high_amp":16,"unknown":0},{"epoch":5,"accuracy_n":496,"accuracy_d":569,"alive":64,"high_amp":16,"unknown":0},{"epoch":6,"accuracy_n":497,"accuracy_d":569,"alive":64,"high_amp":15,"unknown":0},{"epoch":7,"accuracy_n":501,"accuracy_d":569,"alive":64,"high_amp":15,"unknown":0},{"epoch":8,"accuracy_n":499,"accuracy_d":569,"alive":64,"high_amp":15,"unknown":0},{"epoch":9,"accuracy_n":500,"accuracy_d":569,"alive":64,"high_amp":15,"unknown":0},{"epoch":10,"accuracy_n":499,"accuracy_d":569,"alive":64,"high_amp":15,"unknown":0},{"epoch":11,"accuracy_n":497,"accuracy_d":569,"alive":64,"high_amp":15,"unknown":0},{"epoch":12,"accuracy_n":500,"accuracy_d":569,"alive":64,"high_amp":17,"unknown":0},{"epoch":13,"accuracy_n":495,"accuracy_d":569,"alive":64,"high_amp":16,"unknown":0},{"epoch":14,"accuracy_n":496,"accuracy_d":569,"alive":64,"high_amp":16,"unknown":0},{"epoch":15,"accuracy_n":497,"accuracy_d":569,"alive":64,"high_amp":16,"unknown":0},{"epoch":16,"accuracy_n":499,"accuracy_d":569,"alive":64,"high_amp":16,"unknown":0},{"epoch":17,"accuracy_n":495,"accuracy_d":569,"alive":64,"high_amp":15,"unknown":0},{"epoch":18,"accuracy_n":497,"accuracy_d":569,"alive":64,"high_amp":15,"unknown":0},{"epoch":19,"accuracy_n":497,"accuracy_d":569,"alive":64,"high_amp":15,"unknown":0},{"epoch":20,"accuracy_n":495,"accuracy_d":569,"alive":64,"high_amp":15,"unknown":0},{"epoch":21,"accuracy_n":499,"accuracy_d":569,"alive":64,"high_amp":15,"unknown":0},{"epoch":22,"accuracy_n":500,"accuracy_d":569,"alive":64,"high_amp":15,"unknown":0},{"epoch":23,"accuracy_n":501,"accuracy_d":569,"alive":64,"high_amp":15,"unknown":0},{"epoch":24,"accuracy_n":499,"accuracy_d":569,"alive":64,"high_amp":15,"unknown":0}],"feature_names":["mean radius","mean texture","mean perimeter","mean area","mean smoothness","mean compactness","mean concavity","mean concave points","mean symmetry","mean fractal dimension","radius error","texture error","perimeter error","area error","smoothness error","compactness error","concavity error","concave points error","symmetry error","fractal dimension error","worst radius","worst texture","worst perimeter","worst area","worst smoothness","worst compactness","worst concavity","worst concave points","worst symmetry","worst fractal dimension"],"mi_ranking":[23,3,22,13,2,20,21,0,1,12,10,26,25,6,27,5,7,28,24,8,16,29,15,4,11,17,19,14,9,18]};
+
+const cv = document.getElementById('c');
+const cx = cv.getContext('2d');
+let W, H, dpr;
+function resize(){
+  dpr = devicePixelRatio;
+  W = innerWidth; H = innerHeight;
+  cv.width = W*dpr; cv.height = H*dpr;
+  cv.style.width = W+'px'; cv.style.height = H+'px';
+  cx.setTransform(dpr,0,0,dpr,0,0);
+}
+addEventListener('resize', resize); resize();
+
+// ---- Process cells ----
+const fn = DATA.feature_names, mi = DATA.mi_ranking, tf = mi.slice(0,8);
+const thresholds = [3,6,10,13];
+
+const cells = DATA.cells.map(c => {
+  let wf=-1, thr=0;
+  for(let i=0;i<c.w_against_n.length;i++) if(c.w_against_n[i]>0){wf=i;thr=c.w_for_n[i];break;}
+  const fr = tf.indexOf(wf);
+  return {...c, wf, fr, thr, fn: fn[wf]||'?',
+    amp: c.amplitude_n/c.amplitude_d,
+    acc: c.accuracy_n/Math.max(1,c.accuracy_d)};
+});
+
+// ---- 3D geometry ----
+const layerSpacing = 1.8;
+const ringRadius = 3.5;
+
+function cellPos3D(cell) {
+  const layerIdx = thresholds.indexOf(cell.thr);
+  const y = (layerIdx - 1.5) * layerSpacing;
+  const angle = (cell.fr / 8) * Math.PI * 2 - Math.PI / 2;
+  const x = Math.cos(angle) * ringRadius;
+  const z = Math.sin(angle) * ringRadius;
+  return [x, y, z];
+}
+
+cells.forEach(c => { c.pos = cellPos3D(c); });
+
+// ---- Generate particle mesh ----
+// Particles along edges, around nodes, and as ambient dust
+const RNG = (function(s){return function(){s=s*16807%2147483647;return(s-1)/2147483646;}})(42);
+
+const particles = [];
+
+// Edge particles: along vertical and horizontal connections
+function lerp3(a,b,t){ return [a[0]+(b[0]-a[0])*t, a[1]+(b[1]-a[1])*t, a[2]+(b[2]-a[2])*t]; }
+
+// Get NEG cell positions for edge generation
+const negCells = cells.filter(c => c.group === 'NEG');
+
+// Vertical edge particles
+for(let fi=0; fi<8; fi++){
+  for(let ti=0; ti<3; ti++){
+    const a = negCells.find(c => c.fr===fi && c.thr===thresholds[ti]);
+    const b = negCells.find(c => c.fr===fi && c.thr===thresholds[ti+1]);
+    if(a && b){
+      const bothAlive = a.influential && b.influential;
+      const count = bothAlive ? 18 : 5;
+      for(let i=0; i<count; i++){
+        const t = (i+0.5)/count + (RNG()-0.5)*0.06;
+        const pos = lerp3(a.pos, b.pos, t);
+        // Offset perpendicular to edge
+        const jitter = bothAlive ? 0.15 : 0.08;
+        pos[0] += (RNG()-0.5)*jitter;
+        pos[1] += (RNG()-0.5)*jitter*0.3;
+        pos[2] += (RNG()-0.5)*jitter;
+        const size = bothAlive ? 0.6 + RNG()*1.2 : 0.3 + RNG()*0.5;
+        const alpha = bothAlive ? 0.15 + RNG()*0.35 : 0.05 + RNG()*0.1;
+        particles.push({pos, size, alpha, type:'edge', alive:bothAlive, phase:RNG()*6.28, speed:0.005+RNG()*0.015});
+      }
+    }
+  }
+}
+
+// Horizontal ring particles
+for(let ti=0; ti<4; ti++){
+  for(let fi=0; fi<8; fi++){
+    const fi2 = (fi+1)%8;
+    const a = negCells.find(c => c.fr===fi && c.thr===thresholds[ti]);
+    const b = negCells.find(c => c.fr===fi2 && c.thr===thresholds[ti]);
+    if(a && b){
+      const bothAlive = a.influential && b.influential;
+      const count = bothAlive ? 14 : 4;
+      for(let i=0; i<count; i++){
+        const t = (i+0.5)/count + (RNG()-0.5)*0.08;
+        const pos = lerp3(a.pos, b.pos, t);
+        const jitter = bothAlive ? 0.12 : 0.06;
+        pos[0] += (RNG()-0.5)*jitter;
+        pos[1] += (RNG()-0.5)*jitter;
+        pos[2] += (RNG()-0.5)*jitter;
+        const size = bothAlive ? 0.5 + RNG()*1.0 : 0.2 + RNG()*0.4;
+        const alpha = bothAlive ? 0.12 + RNG()*0.3 : 0.04 + RNG()*0.08;
+        particles.push({pos, size, alpha, type:'edge', alive:bothAlive, phase:RNG()*6.28, speed:0.004+RNG()*0.012});
+      }
+    }
+  }
+}
+
+// Node halo particles: cluster around influential cells
+cells.forEach(c => {
+  if(!c.influential) return;
+  const count = 25 + Math.floor(c.amp * 30);
+  for(let i=0; i<count; i++){
+    // Spherical distribution
+    const theta = RNG() * Math.PI * 2;
+    const phi = Math.acos(2*RNG()-1);
+    const r = 0.25 + RNG()*0.8 * (0.5 + c.amp*0.5);
+    const pos = [
+      c.pos[0] + Math.sin(phi)*Math.cos(theta)*r,
+      c.pos[1] + Math.sin(phi)*Math.sin(theta)*r*0.6,
+      c.pos[2] + Math.cos(phi)*r
+    ];
+    const size = 0.4 + RNG()*1.5 * c.amp;
+    const alpha = 0.08 + RNG()*0.25 * c.amp;
+    particles.push({pos, size, alpha, type:'halo', cellId:c.id, acc:c.acc, amp:c.amp, phase:RNG()*6.28, speed:0.008+RNG()*0.02});
+  }
+});
+
+// Ambient dust: floating particles forming the overall topology shape
+for(let i=0; i<300; i++){
+  // Distribute around the toroidal structure
+  const angle = RNG() * Math.PI * 2;
+  const layerT = RNG();
+  const layerY = (layerT - 0.5) * layerSpacing * 4;
+  const rVar = ringRadius * (0.3 + RNG() * 1.4);
+  const pos = [
+    Math.cos(angle) * rVar + (RNG()-0.5)*1.5,
+    layerY + (RNG()-0.5)*1.2,
+    Math.sin(angle) * rVar + (RNG()-0.5)*1.5
+  ];
+  const size = 0.2 + RNG()*0.8;
+  const alpha = 0.02 + RNG()*0.06;
+  particles.push({pos, size, alpha, type:'dust', phase:RNG()*6.28, speed:0.002+RNG()*0.008});
+}
+
+// ---- Camera ----
+let rotY = 0.3, rotX = 0.35;
+let zoom = 1.0;
+let autoRotate = true;
+let dragging = false, lastMx = 0, lastMy = 0;
+
+cv.addEventListener('mousedown', e => { dragging=true; lastMx=e.clientX; lastMy=e.clientY; autoRotate=false; });
+addEventListener('mouseup', () => { dragging=false; });
+addEventListener('mousemove', e => {
+  if(dragging){
+    rotY += (e.clientX-lastMx)*0.005;
+    rotX += (e.clientY-lastMy)*0.005;
+    rotX = Math.max(-1.2, Math.min(1.2, rotX));
+    lastMx=e.clientX; lastMy=e.clientY;
+  }
+});
+cv.addEventListener('wheel', e => {
+  e.preventDefault();
+  zoom *= e.deltaY > 0 ? 0.95 : 1.05;
+  zoom = Math.max(0.3, Math.min(3, zoom));
+}, {passive:false});
+cv.addEventListener('dblclick', () => { autoRotate = true; });
+
+// Touch support
+let lastTouchDist = 0;
+cv.addEventListener('touchstart', e => {
+  if(e.touches.length===1){dragging=true;lastMx=e.touches[0].clientX;lastMy=e.touches[0].clientY;autoRotate=false;}
+  if(e.touches.length===2){const dx=e.touches[0].clientX-e.touches[1].clientX,dy=e.touches[0].clientY-e.touches[1].clientY;lastTouchDist=Math.sqrt(dx*dx+dy*dy);}
+  e.preventDefault();
+},{passive:false});
+cv.addEventListener('touchmove', e => {
+  if(e.touches.length===1&&dragging){
+    rotY+=(e.touches[0].clientX-lastMx)*0.005;
+    rotX+=(e.touches[0].clientY-lastMy)*0.005;
+    rotX=Math.max(-1.2,Math.min(1.2,rotX));
+    lastMx=e.touches[0].clientX;lastMy=e.touches[0].clientY;
+  }
+  if(e.touches.length===2){
+    const dx=e.touches[0].clientX-e.touches[1].clientX,dy=e.touches[0].clientY-e.touches[1].clientY;
+    const d=Math.sqrt(dx*dx+dy*dy);
+    if(lastTouchDist>0){zoom*=d/lastTouchDist;zoom=Math.max(0.3,Math.min(3,zoom));}
+    lastTouchDist=d;
+  }
+  e.preventDefault();
+},{passive:false});
+cv.addEventListener('touchend', () => {dragging=false;lastTouchDist=0;});
+
+// ---- Project 3D → 2D ----
+function project(p) {
+  let [x,y,z] = p;
+  let cosY = Math.cos(rotY), sinY = Math.sin(rotY);
+  let x1 = x*cosY - z*sinY, z1 = x*sinY + z*cosY;
+  let cosX = Math.cos(rotX), sinX = Math.sin(rotX);
+  let y1 = y*cosX - z1*sinX, z2 = y*sinX + z1*cosX;
+  const fov = 8;
+  const scale = fov / (fov + z2) * Math.min(W,H) * 0.1 * zoom;
+  return [W/2 + x1*scale, H/2 + y1*scale, z2, scale];
+}
+
+// ---- Colors ----
+function accCol(a){return a>=.95?'#50e8b0':a>=.85?'#64c8ff':a>=.7?'#e8c840':'#e06040'}
+function accRGB(a){return a>=.95?[80,232,176]:a>=.85?[100,200,255]:a>=.7?[232,200,64]:[224,96,64]}
+
+// ---- Hover ----
+let mx=-9999, my=-9999, hovered=null;
+cv.addEventListener('mousemove', e => { if(!dragging){mx=e.clientX; my=e.clientY;} });
+
+function showPanel(c){
+  const p = document.getElementById('panel');
+  p.classList.add('visible');
+  document.getElementById('pt').textContent = `Cell ${c.id} · ${c.group}`;
+  document.getElementById('pf').textContent = c.fn;
+  document.getElementById('ph').textContent = `${c.thr}/${c.w_denom}`;
+  document.getElementById('pp').textContent = c.group==='NEG'?'high \u2192 malignant':'high \u2192 benign';
+  document.getElementById('pa').textContent = `${c.amplitude_n}/${c.amplitude_d}`;
+  document.getElementById('pab').style.width = (c.amp*100)+'%';
+  document.getElementById('pab').style.background = '#64c8ff';
+  const ap = c.acc*100;
+  document.getElementById('pc').textContent = `${c.accuracy_n}/${c.accuracy_d} (${Math.round(ap*10)/10}%)`;
+  document.getElementById('pcb').style.width = ap+'%';
+  document.getElementById('pcb').style.background = accCol(c.acc);
+  document.getElementById('pb').textContent = c.budget.toLocaleString();
+  document.getElementById('pe').textContent = c.heat.toLocaleString();
+  document.getElementById('ps').textContent = `${c.correct} / ${c.wrong}`;
+}
+
+// ---- Draw ----
+let t = 0;
+function frame(){
+  t++;
+  if(autoRotate) rotY += 0.003;
+  cx.clearRect(0,0,W,H);
+
+  // Background gradient
+  const bg = cx.createRadialGradient(W/2,H/2,0,W/2,H/2,Math.max(W,H)*0.7);
+  bg.addColorStop(0,'#080a14'); bg.addColorStop(1,'#020306');
+  cx.fillStyle = bg; cx.fillRect(0,0,W,H);
+
+  // ---- Project particles ----
+  const projParticles = particles.map(p => {
+    // Animate particles slightly
+    const anim = Math.sin(t * p.speed + p.phase);
+    const pos = [
+      p.pos[0] + anim * 0.03,
+      p.pos[1] + Math.cos(t * p.speed * 0.7 + p.phase) * 0.02,
+      p.pos[2] + Math.sin(t * p.speed * 1.3 + p.phase + 1) * 0.03
+    ];
+    const [sx,sy,sz,sc] = project(pos);
+    return {p, sx, sy, sz, sc};
+  });
+
+  // Project all cells
+  const projected = cells.map(c => {
+    const [sx,sy,sz,sc] = project(c.pos);
+    return {c, sx, sy, sz, sc};
+  });
+
+  // Merge particles and cells for depth sorting
+  const allItems = [];
+  projParticles.forEach(pp => allItems.push({type:'particle', data:pp, z:pp.sz}));
+  projected.forEach(pc => allItems.push({type:'cell', data:pc, z:pc.sz}));
+  allItems.sort((a,b) => b.z - a.z);
+
+  // ---- Hit test on cells ----
+  hovered = null;
+  for(let i=projected.length-1; i>=0; i--){
+    const p = projected[i];
+    const r = p.c.influential ? 8 + p.c.amp * 18 : 4;
+    const dx = p.sx - mx, dy = p.sy - my;
+    if(dx*dx + dy*dy < (r+10)*(r+10)){ hovered = p.c; break; }
+  }
+
+  // ---- Draw all items depth-sorted ----
+  allItems.forEach(item => {
+    if(item.type === 'particle'){
+      const {p: part, sx, sy, sz, sc} = item.data;
+      // Depth-based fade
+      const depthFade = Math.max(0.15, Math.min(1, (5 - sz) / 10));
+      const anim = Math.sin(t * part.speed + part.phase);
+      const animAlpha = part.alpha * (0.7 + 0.3 * anim);
+      const finalAlpha = animAlpha * depthFade;
+      const r = part.size * sc * 0.08;
+
+      if(part.type === 'halo'){
+        // Colored particles near nodes
+        const [cr,cg,cb] = accRGB(part.acc);
+        const brightMul = 0.5 + part.amp * 0.5;
+        cx.fillStyle = `rgba(${Math.round(cr*brightMul)},${Math.round(cg*brightMul)},${Math.round(cb*brightMul)},${finalAlpha})`;
+        cx.beginPath(); cx.arc(sx, sy, Math.max(0.3, r), 0, Math.PI*2); cx.fill();
+      } else if(part.type === 'edge' && part.alive){
+        // White-blue particles on active edges
+        cx.fillStyle = `rgba(180,210,240,${finalAlpha})`;
+        cx.beginPath(); cx.arc(sx, sy, Math.max(0.3, r), 0, Math.PI*2); cx.fill();
+      } else {
+        // Dim dust / dead edge particles
+        cx.fillStyle = `rgba(100,110,140,${finalAlpha * 0.5})`;
+        cx.beginPath(); cx.arc(sx, sy, Math.max(0.2, r*0.7), 0, Math.PI*2); cx.fill();
+      }
+    } else {
+      // Cell node
+      const {c, sx: psx, sy: psy, sz: psz, sc: psc} = item.data;
+      const isHov = hovered === c;
+      const isAlive = c.influential;
+
+      if(isAlive){
+        // SIZE diversification: amplitude drives radius (2x range)
+        const baseR = 4 + c.amp * 20;
+        const breath = Math.sin(t*0.012+c.id*0.7)*1.5;
+        const r = baseR + breath;
+
+        // TRANSPARENCY diversification: accuracy drives brightness
+        const accMul = 0.4 + c.acc * 0.6;
+        const [cr,cg,cb] = accRGB(c.acc);
+
+        // Outer glow — large, soft, colored
+        const glowR = r * (isHov ? 6 : 4);
+        const glow = cx.createRadialGradient(psx,psy,r*0.2,psx,psy,glowR);
+        glow.addColorStop(0, `rgba(${cr},${cg},${cb},${(isHov?0.4:0.25)*accMul})`);
+        glow.addColorStop(0.3, `rgba(${cr},${cg},${cb},${(isHov?0.15:0.08)*accMul})`);
+        glow.addColorStop(0.7, `rgba(${cr},${cg},${cb},${(isHov?0.04:0.02)*accMul})`);
+        glow.addColorStop(1, 'rgba(0,0,0,0)');
+        cx.fillStyle = glow;
+        cx.beginPath(); cx.arc(psx,psy,glowR,0,Math.PI*2); cx.fill();
+
+        // Core orb
+        const coreGrad = cx.createRadialGradient(psx-r*0.25,psy-r*0.25,0,psx,psy,r);
+        coreGrad.addColorStop(0, `rgba(${Math.min(255,cr+100)},${Math.min(255,cg+100)},${Math.min(255,cb+100)},${0.9*accMul})`);
+        coreGrad.addColorStop(0.6, `rgba(${cr},${cg},${cb},${0.8*accMul})`);
+        coreGrad.addColorStop(1, `rgba(${Math.round(cr*0.6)},${Math.round(cg*0.6)},${Math.round(cb*0.6)},${0.5*accMul})`);
+        cx.fillStyle = coreGrad;
+        cx.beginPath(); cx.arc(psx,psy,r,0,Math.PI*2); cx.fill();
+
+        // Specular highlight
+        const hl = cx.createRadialGradient(psx-r*0.35,psy-r*0.35,0,psx,psy,r*0.8);
+        hl.addColorStop(0,'rgba(255,255,255,0.35)');
+        hl.addColorStop(0.5,'rgba(255,255,255,0.08)');
+        hl.addColorStop(1,'rgba(255,255,255,0)');
+        cx.fillStyle = hl;
+        cx.beginPath(); cx.arc(psx,psy,r,0,Math.PI*2); cx.fill();
+
+        // Pulsing ring for >95% accuracy cells
+        if(c.acc > 0.95){
+          const ringAlpha = 0.2 + Math.sin(t*0.02+c.id)*0.15;
+          cx.strokeStyle = `rgba(${cr},${cg},${cb},${ringAlpha})`;
+          cx.lineWidth = 1.5;
+          cx.beginPath(); cx.arc(psx,psy,r+4+Math.sin(t*0.015+c.id*0.3)*2,0,Math.PI*2); cx.stroke();
+        }
+
+        // Second subtle outer ring for very high amp
+        if(c.amp > 0.95){
+          cx.strokeStyle = `rgba(${cr},${cg},${cb},${0.06+Math.sin(t*0.01+c.id*0.5)*0.04})`;
+          cx.lineWidth = 0.8;
+          cx.beginPath(); cx.arc(psx,psy,r+10+Math.sin(t*0.008+c.id)*4,0,Math.PI*2); cx.stroke();
+        }
+
+        // Label on hover
+        if(isHov){
+          cx.font = '10px "SF Mono",monospace';
+          cx.fillStyle = 'rgba(220,230,255,0.9)';
+          cx.textAlign = 'center';
+          cx.fillText(`${Math.round(c.acc*1000)}‰`, psx, psy - r - 8);
+          cx.fillStyle = 'rgba(220,230,255,0.45)';
+          cx.font = '9px "SF Mono",monospace';
+          cx.fillText(c.fn, psx, psy - r - 20);
+          cx.fillStyle = 'rgba(180,200,230,0.3)';
+          cx.fillText(`amp ${c.amplitude_n}/${c.amplitude_d}`, psx, psy + r + 14);
+        }
+      } else {
+        // Dead cell: tiny, very transparent
+        const deadAlpha = 0.06 + c.acc * 0.08;
+        const deadR = 1.5 + c.acc * 1.5;
+        cx.fillStyle = isHov
+          ? `rgba(80,90,120,${deadAlpha*3})`
+          : `rgba(40,45,65,${deadAlpha})`;
+        cx.beginPath(); cx.arc(psx,psy,deadR,0,Math.PI*2); cx.fill();
+
+        if(isHov){
+          cx.font = '9px "SF Mono",monospace';
+          cx.fillStyle = 'rgba(160,170,200,0.5)';
+          cx.textAlign = 'center';
+          cx.fillText(`${Math.round(c.acc*1000)}‰`, psx, psy - deadR - 6);
+          cx.fillText(c.fn, psx, psy - deadR - 16);
+        }
+      }
+    }
+  });
+
+  // ---- Layer labels ----
+  const labelPos = ringRadius + 1.6;
+  for(let ti=0; ti<4; ti++){
+    const [sx,sy] = project([labelPos, (ti-1.5)*layerSpacing, 0]);
+    cx.font = '9px "SF Mono",monospace';
+    cx.fillStyle = 'rgba(140,170,210,0.18)';
+    cx.textAlign = 'left';
+    cx.fillText(`thr=${thresholds[ti]}/16`, sx+8, sy+3);
+  }
+
+  // ---- Feature labels (top ring) ----
+  for(let fi=0; fi<8; fi++){
+    const angle = (fi/8)*Math.PI*2 - Math.PI/2;
+    const lx = Math.cos(angle) * (ringRadius + 1.8);
+    const lz = Math.sin(angle) * (ringRadius + 1.8);
+    const [sx,sy] = project([lx, -1.5*layerSpacing - 1.0, lz]);
+    const surviving = cells.filter(c => c.fr===fi && c.influential).length;
+    cx.font = '8px "SF Mono",monospace';
+    cx.textAlign = 'center';
+    cx.fillStyle = surviving > 0 ? 'rgba(100,200,255,0.3)' : 'rgba(80,90,110,0.15)';
+    cx.fillText(fn[tf[fi]], sx, sy);
+    if(surviving > 0){
+      cx.fillStyle = 'rgba(100,200,255,0.15)';
+      cx.fillText(`${surviving}`, sx, sy + 11);
+    }
+  }
+
+  // Panel
+  if(hovered) showPanel(hovered);
+  else document.getElementById('panel').classList.remove('visible');
+
+  requestAnimationFrame(frame);
+}
+
+// Stats
+const last = DATA.epochs[DATA.epochs.length-1];
+const nA = cells.filter(c=>c.influential).length;
+const ap = Math.round(last.accuracy_n*1000/last.accuracy_d);
+document.getElementById('stats').innerHTML =
+  `<span>${nA}</span>/64 surviving · accuracy <span>${ap}‰</span> · ${DATA.epochs.length} epochs · Wisconsin Breast Cancer (n=569)`;
+
+frame();
+</script>
+</body>
+</html>
