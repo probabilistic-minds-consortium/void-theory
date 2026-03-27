@@ -71,7 +71,7 @@ Definition state_distance (s1 s2 : State) (b : Budget) : (Fin * Budget) :=
 
 (* Average probabilities *)
 Definition avg_prob_b (p1 p2 : FinProb) (b : Budget) : (FinProb * Budget) :=
-  match add_prob_heat p1 p2 b with
+  match add_prob_spur p1 p2 b with
   | ((sum_n, sum_d), b', _) =>
       (* Divide by 2 by doubling denominator *)
       match add_fin sum_d sum_d b' with
@@ -172,7 +172,7 @@ Instance decay_rate_read : ReadOperation MemoryTrace Fin := {
 
 (* Observe a tick - WRITE operation *)
 Definition write_observe_tick (o : Observer) (t : tick) (b : Budget)
-  : (option MemoryTrace * Observer * Budget * Heat) :=
+  : (option MemoryTrace * Observer * Budget * Spuren) :=
   match b with
   | fz => (None, o, fz, fz)
   | fs b' =>
@@ -198,7 +198,7 @@ Instance observe_tick_write : WriteOperation (Observer * tick) (option MemoryTra
 
 (* Store observation in memory - WRITE operation *)
 Definition write_store_observation (mb : MemoryBank) (mt : MemoryTrace) (b : Budget)
-  : (MemoryBank * Budget * Heat) :=
+  : (MemoryBank * Budget * Spuren) :=
   match b with
   | fz => (mb, fz, fz)
   | fs b' =>
@@ -224,7 +224,7 @@ Instance store_observation_write : WriteOperation (MemoryBank * MemoryTrace) Mem
 
 (* Decay memory trace - WRITE operation *)
 Definition write_decay_trace (mt : MemoryTrace) (b : Budget)
-  : (MemoryTrace * Budget * Heat) :=
+  : (MemoryTrace * Budget * Spuren) :=
   match b with
   | fz => (mt, fz, fz)
   | fs b' =>
@@ -241,7 +241,7 @@ Instance decay_trace_write : WriteOperation MemoryTrace MemoryTrace := {
 
 (* Decay entire memory bank - WRITE operation *)
 Definition write_decay_memory_bank (mb : MemoryBank) (b : Budget)
-  : (MemoryBank * Budget * Heat) :=
+  : (MemoryBank * Budget * Spuren) :=
   match b with
   | fz => (mb, fz, fz)
   | fs b' =>
@@ -255,9 +255,9 @@ Definition write_decay_memory_bank (mb : MemoryBank) (b : Budget)
                 match write_decay_trace mt b_acc with
                 | (new_mt, b'', h) =>
                     if read_trace_forgotten new_mt then
-                      (traces, b'', add_heat h_acc h)  (* Forget *)
+                      (traces, b'', add_spur h_acc h)  (* Forget *)
                     else
-                      (new_mt :: traces, b'', add_heat h_acc h)
+                      (new_mt :: traces, b'', add_spur h_acc h)
                 end
             end
         end
@@ -276,7 +276,7 @@ Instance decay_memory_write : WriteOperation MemoryBank MemoryBank := {
 
 (* Check tick similarity - WRITE operation (computes distance) *)
 Definition write_tick_similarity (t1 t2 : tick) (tolerance : Fin) (b : Budget)
-  : (bool * Budget * Heat) :=
+  : (bool * Budget * Spuren) :=
   match t1, t2, b with
   | Tick s1 s2, Tick s1' s2', fs b' =>
       (* Compare states *)
@@ -304,7 +304,7 @@ Instance tick_similarity_write : WriteOperation (tick * tick * Fin) bool := {
 (* Find similar tick in memory - WRITE operation *)
 Fixpoint write_find_similar_tick (t : tick) (traces : list MemoryTrace) 
                                  (tolerance : Fin) (b : Budget)
-  : (option (tick * FinProb) * Budget * Heat) :=
+  : (option (tick * FinProb) * Budget * Spuren) :=
   match traces, b with
   | [], _ => (None, b, fz)
   | _, fz => (None, fz, fz)
@@ -314,7 +314,7 @@ Fixpoint write_find_similar_tick (t : tick) (traces : list MemoryTrace)
           (Some (remembered_tick mt, strength mt), b'', h1)
       | (false, b'', h1) =>
           match write_find_similar_tick t rest tolerance b'' with
-          | (result, b''', h2) => (result, b''', add_heat h1 h2)
+          | (result, b''', h2) => (result, b''', add_spur h1 h2)
           end
       end
   end.
@@ -326,7 +326,7 @@ Instance find_similar_write : WriteOperation (tick * list MemoryTrace * Fin)
 
 (* Synchronize observers - WRITE operation *)
 Definition write_sync_observers (o1 o2 : Observer) (b : Budget)
-  : (Observer * Observer * Budget * Heat) :=
+  : (Observer * Observer * Budget * Spuren) :=
   match b with
   | fz => (o1, o2, fz, fz)
   | fs b' =>

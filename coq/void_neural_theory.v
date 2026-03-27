@@ -37,7 +37,7 @@ Import Void_Probability_Minimal.
 
 (* refund_cell : give budget back to a cell that predicted correctly.        *)
 (*                                                                          *)
-(* amount is Fin (budget domain). Threshold and heat unchanged.             *)
+(* amount is Fin (budget domain). Threshold and Spuren unchanged.             *)
 (* Budget increases by amount. That is the entire operation.                *)
 (*                                                                          *)
 (* Who decides how much to refund? The builder. This just adds ticks.       *)
@@ -46,8 +46,8 @@ Import Void_Probability_Minimal.
 
 Definition refund_cell (c : LearningCell) (amount : Fin) : LearningCell :=
   mkCell (cell_threshold c)
-         (add_heat (cell_budget c) amount)   (* add_heat is just fs^n *)
-         (cell_heat c).
+         (add_spur (cell_budget c) amount)   (* add_spur is just fs^n *)
+         (cell_spur c).
 
 (* Refund a specific cell in a layer *)
 Fixpoint refund_nth (layer : Layer) (n : Fin) (amount : Fin) : Layer :=
@@ -82,7 +82,7 @@ Fixpoint refund_matching (layer : Layer) (output : Signal) (target : Bool3)
 Theorem refund_increases_budget : forall c amount,
   leF (cell_budget c) (cell_budget (refund_cell c amount)).
 Proof.
-  intros c amount. unfold refund_cell. simpl. apply add_heat_geq.
+  intros c amount. unfold refund_cell. simpl. apply add_spur_geq.
 Qed.
 
 Theorem refund_preserves_threshold : forall c amount,
@@ -91,8 +91,8 @@ Proof.
   intros. unfold refund_cell. simpl. reflexivity.
 Qed.
 
-Theorem refund_preserves_heat : forall c amount,
-  cell_heat (refund_cell c amount) = cell_heat c.
+Theorem refund_preserves_spur : forall c amount,
+  cell_spur (refund_cell c amount) = cell_spur c.
 Proof.
   intros. unfold refund_cell. simpl. reflexivity.
 Qed.
@@ -263,7 +263,7 @@ Definition tally (signals : Signal) (b : Budget) : Verdict :=
   let t := count_result signals BTrue in
   let f := count_result signals BFalse in
   let u := count_result signals BUnknown in
-  let known := add_heat t f in
+  let known := add_spur t f in
   match le_fin_b3 known u b with
   | (BTrue, b1, _) => mkVerdict BUnknown t f u    (* unknown >= known *)
   | (BUnknown, b1, _) => mkVerdict BUnknown t f u (* can't compare *)
@@ -285,10 +285,10 @@ Definition verdict_confidence (v : Verdict) : FinProb :=
   match decision v with
   | BUnknown => (fz, fs fz)    (* 0/1: no confidence *)
   | BTrue =>
-      let total := add_heat (votes_true v) (add_heat (votes_false v) (votes_unknown v)) in
+      let total := add_spur (votes_true v) (add_spur (votes_false v) (votes_unknown v)) in
       (votes_true v, total)
   | BFalse =>
-      let total := add_heat (votes_true v) (add_heat (votes_false v) (votes_unknown v)) in
+      let total := add_spur (votes_true v) (add_spur (votes_false v) (votes_unknown v)) in
       (votes_false v, total)
   end.
 

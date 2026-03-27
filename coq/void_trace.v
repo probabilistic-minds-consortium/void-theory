@@ -3,8 +3,8 @@
 (*                                                                            *)
 (* Every operation in VOID has one of two signatures:                         *)
 (*                                                                            *)
-(*   VoidOp3: Budget -> (A * Budget * Heat)     -- explicit heat              *)
-(*   VoidOp2: Budget -> (A * Budget)            -- implicit heat              *)
+(*   VoidOp3: Budget -> (A * Budget * Spuren)     -- explicit Spuren              *)
+(*   VoidOp2: Budget -> (A * Budget)            -- implicit Spuren              *)
 (*                                                                            *)
 (* Every file threads budget by hand: destructure, pass remainder, repeat.    *)
 (* This file names what they all do.                                          *)
@@ -18,16 +18,16 @@
 (*                                                                            *)
 (* Five properties follow for ALL operations, proved once:                    *)
 (*                                                                            *)
-(* 1. CONSERVATION - total heat + final budget = initial budget               *)
+(* 1. CONSERVATION - total Spuren + final budget = initial budget               *)
 (* 2. MONOTONICITY - budget never increases along a trace                     *)
-(* 3. OPACITY      - at zero budget, output and heat are both zero            *)
+(* 3. OPACITY      - at zero budget, output and Spuren are both zero            *)
 (* 4. ABSORPTION   - once at zero, every subsequent step stays at zero        *)
 (* 5. FINITUDE     - if each step costs a tick, trace length is bounded       *)
 (*                                                                            *)
 (* Then: 13 instantiations across 6 modules.                                  *)
 (*                                                                            *)
 (* DEPENDS ON:                                                                *)
-(*   void_finite_minimal.v      - Fin, Budget, Heat, Bool3                    *)
+(*   void_finite_minimal.v      - Fin, Budget, Spuren, Bool3                    *)
 (*   void_probability_minimal.v - FinProb                                     *)
 (*   void_pattern.v             - Pattern, Observer, decay_with_budget        *)
 (*   void_arithmetic.v          - add_fin, mult_fin, sub_fin                  *)
@@ -55,10 +55,10 @@ Import Void_Pattern.
 (*                                                                            *)
 (******************************************************************************)
 
-(* Triple-returning: fin_eq_b3, le_fin_b3. Heat is explicit. *)
-Definition VoidOp3 (A : Type) := Budget -> (A * Budget * Heat).
+(* Triple-returning: fin_eq_b3, le_fin_b3. Spuren is explicit. *)
+Definition VoidOp3 (A : Type) := Budget -> (A * Budget * Spuren).
 
-(* Pair-returning: everything else. Heat is implicit (= input - output). *)
+(* Pair-returning: everything else. Spuren is implicit (= input - output). *)
 Definition VoidOp2 (A : Type) := Budget -> (A * Budget).
 
 (* Steps: executed operations. Events, not functions. *)
@@ -67,7 +67,7 @@ Record Step3 (A : Type) := mkStep3 {
   s3_input  : Budget;
   s3_result : A;
   s3_output : Budget;
-  s3_heat   : Heat
+  s3_spur   : Spuren
 }.
 
 Record Step2 (A : Type) := mkStep2 {
@@ -77,7 +77,7 @@ Record Step2 (A : Type) := mkStep2 {
 }.
 
 Arguments mkStep3 {A}. Arguments s3_input {A}. Arguments s3_result {A}.
-Arguments s3_output {A}. Arguments s3_heat {A}.
+Arguments s3_output {A}. Arguments s3_spur {A}.
 Arguments mkStep2 {A}. Arguments s2_input {A}. Arguments s2_result {A}.
 Arguments s2_output {A}.
 
@@ -94,7 +94,7 @@ Definition execute2 {A : Type} (op : VoidOp2 A) (b : Budget) : Step2 A :=
 
 (* Conservation *)
 Definition conservative3 {A : Type} (s : Step3 A) : Prop :=
-  add_heat (s3_heat s) (s3_output s) = s3_input s.
+  add_spur (s3_spur s) (s3_output s) = s3_input s.
 
 (* Chaining *)
 Definition chained3 {A : Type} (s1 s2 : Step3 A) : Prop :=
@@ -109,10 +109,10 @@ Definition chained2 {A : Type} (s1 s2 : Step2 A) : Prop :=
 (*                                                                            *)
 (******************************************************************************)
 
-Fixpoint total_heat3 {A : Type} (trace : list (Step3 A)) : Heat :=
+Fixpoint total_heat3 {A : Type} (trace : list (Step3 A)) : Spuren :=
   match trace with
   | [] => fz
-  | s :: rest => add_heat (s3_heat s) (total_heat3 rest)
+  | s :: rest => add_spur (s3_spur s) (total_heat3 rest)
   end.
 
 Definition first_budget3 {A : Type} (trace : list (Step3 A))
@@ -151,33 +151,33 @@ Fixpoint run_chain2 {A : Type} (op : VoidOp2 A) (b : Budget) (fuel : Fin)
 
 (******************************************************************************)
 (*                                                                            *)
-(*        LEMMAS: PROPERTIES OF add_heat                                      *)
+(*        LEMMAS: PROPERTIES OF add_spur                                      *)
 (*                                                                            *)
 (******************************************************************************)
 
-Lemma add_heat_assoc : forall a b c,
-  add_heat a (add_heat b c) = add_heat (add_heat a b) c.
+Lemma add_spur_assoc : forall a b c,
+  add_spur a (add_spur b c) = add_spur (add_spur a b) c.
 Proof. intros a b c. induction c; simpl; try rewrite IHc; reflexivity. Qed.
 
-Lemma add_heat_fz_r : forall h, add_heat h fz = h.
+Lemma add_spur_fz_r : forall h, add_spur h fz = h.
 Proof. intros. simpl. reflexivity. Qed.
 
-Lemma add_heat_fz_l : forall x, add_heat fz x = x.
+Lemma add_spur_fz_l : forall x, add_spur fz x = x.
 Proof. intros. induction x; simpl; try rewrite IHx; reflexivity. Qed.
 
-Lemma add_heat_fs : forall h x,
-  add_heat (fs h) x = fs (add_heat h x).
+Lemma add_spur_fs : forall h x,
+  add_spur (fs h) x = fs (add_spur h x).
 Proof. intros h x. induction x; simpl; try rewrite IHx; reflexivity. Qed.
 
-Lemma add_heat_fz_inv : forall h b,
-  add_heat h b = fz -> h = fz /\ b = fz.
+Lemma add_spur_fz_inv : forall h b,
+  add_spur h b = fz -> h = fz /\ b = fz.
 Proof.
   intros h b H. destruct b.
   - simpl in H. split; [exact H | reflexivity].
   - simpl in H. discriminate.
 Qed.
 
-Lemma leF_add_heat_r : forall h x, leF x (add_heat h x).
+Lemma leF_add_spur_r : forall h x, leF x (add_spur h x).
 Proof.
   intros h. induction x as [|x' IH].
   - apply leF_z.
@@ -197,29 +197,29 @@ Proof. intros. unfold execute2. destruct (op b). simpl. reflexivity. Qed.
 
 Theorem trace_conservation_1 : forall A (s : Step3 A),
   conservative3 s ->
-  add_heat (total_heat3 [s]) (last_budget3 [s] fz) = first_budget3 [s] fz.
+  add_spur (total_heat3 [s]) (last_budget3 [s] fz) = first_budget3 [s] fz.
 Proof. intros A s Hc. simpl. exact Hc. Qed.
 
 Theorem trace_conservation_2 : forall A (s1 s2 : Step3 A),
   conservative3 s1 -> conservative3 s2 -> chained3 s1 s2 ->
-  add_heat (total_heat3 [s1; s2]) (last_budget3 [s1; s2] fz)
+  add_spur (total_heat3 [s1; s2]) (last_budget3 [s1; s2] fz)
   = first_budget3 [s1; s2] fz.
 Proof.
   intros A s1 s2 Hc1 Hc2 Hch. simpl.
   unfold conservative3 in Hc1, Hc2. unfold chained3 in Hch.
-  rewrite <- add_heat_assoc.
+  rewrite <- add_spur_assoc.
   rewrite Hc2. rewrite <- Hch. exact Hc1.
 Qed.
 
 Theorem trace_conservation_3 : forall A (s1 s2 s3 : Step3 A),
   conservative3 s1 -> conservative3 s2 -> conservative3 s3 ->
   chained3 s1 s2 -> chained3 s2 s3 ->
-  add_heat (total_heat3 [s1; s2; s3]) (last_budget3 [s1; s2; s3] fz)
+  add_spur (total_heat3 [s1; s2; s3]) (last_budget3 [s1; s2; s3] fz)
   = first_budget3 [s1; s2; s3] fz.
 Proof.
   intros A s1 s2 s3 Hc1 Hc2 Hc3 Hch12 Hch23. simpl.
   unfold conservative3 in *. unfold chained3 in *.
-  rewrite <- add_heat_assoc. rewrite <- add_heat_assoc.
+  rewrite <- add_spur_assoc. rewrite <- add_spur_assoc.
   rewrite Hc3. rewrite <- Hch23.
   rewrite Hc2. rewrite <- Hch12.
   exact Hc1.
@@ -235,7 +235,7 @@ Theorem step3_budget_decreases : forall A (s : Step3 A),
   conservative3 s -> leF (s3_output s) (s3_input s).
 Proof.
   intros A s Hc. unfold conservative3 in Hc.
-  rewrite <- Hc. apply leF_add_heat_r.
+  rewrite <- Hc. apply leF_add_spur_r.
 Qed.
 
 Theorem two_step3_decreases : forall A (s1 s2 : Step3 A),
@@ -256,7 +256,7 @@ Qed.
 (*                                                                            *)
 (******************************************************************************)
 
-(* VoidOp3: at fz, both output and heat are fz *)
+(* VoidOp3: at fz, both output and Spuren are fz *)
 Theorem opacity3_output : forall A (op : VoidOp3 A),
   (forall b, conservative3 (execute3 op b)) ->
   s3_output (execute3 op fz) = fz.
@@ -267,9 +267,9 @@ Proof.
   destruct h; destruct b'; simpl in H; try discriminate; reflexivity.
 Qed.
 
-Theorem opacity3_heat : forall A (op : VoidOp3 A),
+Theorem opacity3_spur : forall A (op : VoidOp3 A),
   (forall b, conservative3 (execute3 op b)) ->
-  s3_heat (execute3 op fz) = fz.
+  s3_spur (execute3 op fz) = fz.
 Proof.
   intros A op Hcons.
   assert (H := Hcons fz). unfold conservative3 in H. unfold execute3 in *.
@@ -301,16 +301,16 @@ Proof.
       apply IH. exact Hin.
 Qed.
 
-Theorem absorption3_heat : forall A (op : VoidOp3 A) fuel,
+Theorem absorption3_spur : forall A (op : VoidOp3 A) fuel,
   (forall b, conservative3 (execute3 op b)) ->
   forall s, In s (run_chain3 op fz fuel) ->
-  s3_heat s = fz.
+  s3_spur s = fz.
 Proof.
   intros A op fuel Hcons.
   induction fuel as [|fuel' IH]; intros s Hin.
   - simpl in Hin. contradiction.
   - simpl in Hin. destruct Hin as [Heq | Hin].
-    + subst. apply opacity3_heat. exact Hcons.
+    + subst. apply opacity3_spur. exact Hcons.
     + rewrite (opacity3_output A op Hcons) in Hin.
       apply IH. exact Hin.
 Qed.
@@ -337,7 +337,7 @@ Qed.
 (******************************************************************************)
 
 Definition costs_tick3 {A : Type} (s : Step3 A) : Prop :=
-  exists h', s3_heat s = fs h'.
+  exists h', s3_spur s = fs h'.
 
 Theorem tick_strictly_decreases : forall A (s : Step3 A),
   conservative3 s -> costs_tick3 s ->
@@ -345,10 +345,10 @@ Theorem tick_strictly_decreases : forall A (s : Step3 A),
 Proof.
   intros A s Hc [h' Hh].
   unfold conservative3 in Hc. rewrite Hh in Hc.
-  rewrite add_heat_fs in Hc.
-  exists (add_heat h' (s3_output s)). split.
+  rewrite add_spur_fs in Hc.
+  exists (add_spur h' (s3_output s)). split.
   - symmetry. exact Hc.
-  - apply leF_add_heat_r.
+  - apply leF_add_spur_r.
 Qed.
 
 (******************************************************************************)
@@ -389,7 +389,7 @@ Qed.
 
 (******************************************************************************)
 (*                                                                            *)
-(*        INSTANTIATIONS: VoidOp3 (explicit heat)                             *)
+(*        INSTANTIATIONS: VoidOp3 (explicit Spuren)                             *)
 (*                                                                            *)
 (*        fin_eq_b3 and le_fin_b3 from void_finite_minimal.v                  *)
 (*                                                                            *)
@@ -403,7 +403,7 @@ Theorem eq_op_conservative : forall a b bud,
 Proof.
   intros a b bud. unfold conservative3, execute3, eq_op.
   destruct (fin_eq_b3 a b bud) as [[r b'] h] eqn:E. simpl.
-  exact (heat_conservation_eq3 a b bud b' r h E).
+  exact (spur_conservation_eq3 a b bud b' r h E).
 Qed.
 
 Definition le_op (a b : Fin) : VoidOp3 Bool3 :=
@@ -414,7 +414,7 @@ Theorem le_op_conservative : forall a b bud,
 Proof.
   intros a b bud. unfold conservative3, execute3, le_op.
   destruct (le_fin_b3 a b bud) as [[r b'] h] eqn:E. simpl.
-  exact (heat_conservation_le3 a b bud b' r h E).
+  exact (spur_conservation_le3 a b bud b' r h E).
 Qed.
 
 (* Absorption follows for free *)
@@ -434,7 +434,7 @@ Qed.
 
 (******************************************************************************)
 (*                                                                            *)
-(*        INSTANTIATIONS: VoidOp2 (implicit heat)                             *)
+(*        INSTANTIATIONS: VoidOp2 (implicit Spuren)                             *)
 (*                                                                            *)
 (*        11 operations across 5 modules.                                     *)
 (*                                                                            *)

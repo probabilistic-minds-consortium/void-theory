@@ -132,7 +132,7 @@ Instance well_entropy_read : ReadOperation (EntropyWell * Fin) Fin := {
 
 (* Get entropy at location - WRITE operation (searches map) *)
 Fixpoint write_get_entropy_at (loc : Fin) (emap : EntropyMap) (b : Budget) 
-  : (Fin * Budget * Heat) :=
+  : (Fin * Budget * Spuren) :=
   match emap, b with
   | [], _ => (fz, b, fz)
   | _, fz => (fz, fz, fz)
@@ -153,7 +153,7 @@ Instance get_entropy_write : WriteOperation (Fin * EntropyMap) Fin := {
 (* Check if location has sufficient entropy - WRITE operation *)
 Definition write_check_tunnel_condition (loc : Fin) (emap : EntropyMap) 
                                        (threshold : Fin) (b : Budget)
-  : (bool * Budget * Heat) :=
+  : (bool * Budget * Spuren) :=
   match b with
   | fz => (false, fz, fz)
   | fs b' =>
@@ -172,7 +172,7 @@ Instance check_tunnel_write : WriteOperation (Fin * EntropyMap * Fin) bool := {
 (* Tunnel to location - WRITE operation *)
 Definition write_tunnel_jump (tp : TunnelingPattern) (target : Fin) 
                             (emap : EntropyMap) (b : Budget)
-  : (TunnelingPattern * Budget * Heat) :=
+  : (TunnelingPattern * Budget * Spuren) :=
   match b with
   | fz => (tp, fz, fz)
   | fs b' =>
@@ -200,7 +200,7 @@ Instance tunnel_jump_write : WriteOperation (TunnelingPattern * Fin * EntropyMap
 
 (* Create entropy gradient - WRITE operation *)
 Definition write_create_gradient (center : Fin) (radius : Fin) (b : Budget)
-  : (EntropyMap * Budget * Heat) :=
+  : (EntropyMap * Budget * Spuren) :=
   match b with
   | fz => ([], fz, fz)
   | fs b' =>
@@ -218,7 +218,7 @@ Instance create_gradient_write : WriteOperation (Fin * Fin) EntropyMap := {
 (* Tunnel through well - WRITE operation *)
 Definition write_tunnel_through_well (tp : TunnelingPattern) (w : EntropyWell) 
                                     (exit_loc : Fin) (b : Budget)
-  : (TunnelingPattern * Budget * Heat) :=
+  : (TunnelingPattern * Budget * Spuren) :=
   match b with
   | fz => (tp, fz, fz)
   | fs b' =>
@@ -229,7 +229,7 @@ Definition write_tunnel_through_well (tp : TunnelingPattern) (w : EntropyWell)
           (* Then jump to exit (needs traversal) *)
           let exit_map := [(exit_loc, well_depth w)] in
           match write_tunnel_jump tp_at_center exit_loc exit_map b'' with
-          | (tp_final, b''', h2) => (tp_final, b''', add_heat h1 h2)
+          | (tp_final, b''', h2) => (tp_final, b''', add_spur h1 h2)
           end
       end
   end.
@@ -242,7 +242,7 @@ Instance tunnel_through_well_write : WriteOperation (TunnelingPattern * EntropyW
 (* Find path through entropy field - WRITE operation *)
 Fixpoint write_find_tunnel_path (start target : Fin) (emap : EntropyMap) 
                                (fuel : Fin) (b : Budget)
-  : (list Fin * Budget * Heat) :=
+  : (list Fin * Budget * Spuren) :=
   match fuel, b with
   | fz, _ => ([start], b, fz)
   | _, fz => ([start], fz, fz)
@@ -258,7 +258,7 @@ Fixpoint write_find_tunnel_path (start target : Fin) (emap : EntropyMap)
             match le_fin_b (fs fz) entropy b'' with  (* Simple threshold *)
             | (true, b''') =>
                 match write_find_tunnel_path next target emap fuel' b''' with
-                | (path, b'''', h2) => (start :: path, b'''', add_heat h1 h2)
+                | (path, b'''', h2) => (start :: path, b'''', add_spur h1 h2)
                 end
             | (false, b''') =>
                 (* Cannot tunnel here *)
@@ -273,7 +273,7 @@ Instance find_path_write : WriteOperation (Fin * Fin * EntropyMap * Fin) (list F
 
 (* Decay tunnel capability - WRITE operation *)
 Definition write_decay_tunnel_capability (tp : TunnelingPattern) (b : Budget)
-  : (TunnelingPattern * Budget * Heat) :=
+  : (TunnelingPattern * Budget * Spuren) :=
   match b with
   | fz => (tp, fz, fz)
   | fs b' =>

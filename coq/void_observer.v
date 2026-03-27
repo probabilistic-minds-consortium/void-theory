@@ -16,88 +16,9 @@
 Require Import Coq.Init.Prelude.
 Require Import Coq.Lists.List.
 Import ListNotations.
-
-(******************************************************************************)
-(* FOUNDATION IMPORT                                                          *)
-(******************************************************************************)
 Require Import void_finite_minimal.
 
-(******************************************************************************)
-(* ECOSYSTEM IMPORTS — The rest of VOID Theory                                *)
-(*                                                                            *)
-(* void_observer.v does NOT stand alone. It is one organ in a body.           *)
-(* These imports connect the Observer to the ecosystem of modules             *)
-(* that formalize different aspects of finite observation.                    *)
-(*                                                                            *)
-(* NOTE ON NAME CONFLICTS:                                                    *)
-(* Several modules define their own Observer, MemoryTrace, etc.               *)
-(* We use qualified names (Module.name) to avoid ambiguity.                   *)
-(* void_observer.v's Observer is the onto-epistemological one:                *)
-(*   obs_state : HiddenState, obs_budget : Budget, obs_trajectory : Trajectory *)
-(* void_time_memory_composition.v's Observer is the temporal one:             *)
-(*   obs_id : Fin, resolution : FinProb, obs_budget : Budget                 *)
-(* They describe different FACETS of the same entity.                         *)
-(******************************************************************************)
-
-(* Arithmetic operations — add_fin_b_heat, sub_saturate_b_heat, etc. *)
-Require Import void_arithmetic.
-
-(* Probability — FinProb, prob_le_b, decay_with_budget *)
-Require Import void_probability_minimal.
-
-(* Pattern — the fundamental observable unit *)
-Require Import void_pattern.
-
-(* Entropy — counting non-zeros costs budget *)
-Require Import void_entropy.
-
-(* Time and memory — tick as State→State, memory decay *)
-Require Import void_time_memory_composition.
-
-(* Sensory transduction — where continuous becomes discrete *)
-Require Import void_sensory_transduction.
-
-(* Distinguishability — the DDF in probabilistic form *)
-Require Import void_distinguishability.
-
-(* Observer collapse — entanglement, backaction, Zeno effect *)
-Require Import void_observer_collapse.
-
-(* Attention cost — maintenance as budget drain *)
-Require Import void_attention_cost.
-
-(* Budget flow — patterns moving through resource landscapes *)
-Require Import void_budget_flow.
-
-(* Temporal memory — traces with age, decay, refresh *)
-Require Import void_temporal_memory.
-
-(* Resonance — patterns finding resonant locations *)
-Require Import void_resonance.
-
-(* Crisis relocation — emergency responses cost dearly *)
-Require Import void_crisis_relocation.
-
-(* Process memory — patterns that regenerate approximately *)
-Require Import void_process_memory.
-
-(* Budgeted complexity — emergence from simple rules *)
-Require Import void_budgeted_complexity.
-
-(* Information theory — entropy, mutual information *)
-Require Import void_information_theory.
-
-(* Memory trace — gradient surfing, scent fields *)
-Require Import void_memory_trace.
-
 Module Void_Observer.
-
-(* Import only non-conflicting modules.                                       *)
-(* Modules with conflicting names (Observer, MemoryTrace, Pattern) are        *)
-(* accessed via qualified names: Void_Time_Memory_Composition.Observer, etc.  *)
-(* void_pattern.v defines its own Observer — NOT imported to avoid clash.     *)
-Import Void_Arithmetic.
-Import Void_Entropy.
 
 (******************************************************************************)
 (* I. FOUNDATIONAL TYPES                                                     *)
@@ -123,7 +44,7 @@ Record Observer := mkObserver {
 (* Observation result: what was seen, what was spent *)
 Record Observation := mkObservation {
   obs_value    : HiddenState;
-  obs_heat     : Heat;
+  obs_spur     : Spuren;
   obs_decision : Bool3;       (* BTrue=seen, BFalse=rejected, BUnknown=blind *)
 }.
 
@@ -141,7 +62,7 @@ Inductive BoundedDecision : Type :=
   | BudgetExhausted : BoundedDecision.     (* don't know if decidable or not *)
 
 (* Every decision procedure runs under budget *)
-Definition BoundedDecider := Observable -> Budget -> (BoundedDecision * Budget * Heat).
+Definition BoundedDecider := Observable -> Budget -> (BoundedDecision * Budget * Spuren).
 
 (* Key distinction: BudgetExhausted ≠ Undecidable.                         *)
 (* BudgetExhausted means: maybe decidable at B+1. Maybe not. BUnknown.     *)
@@ -149,8 +70,8 @@ Definition BoundedDecider := Observable -> Budget -> (BoundedDecision * Budget *
 (* OBSERVER (too poor), not only of the PROBLEM (structurally impossible).  *)
 
 (* Cost as honesty metric — cheap output is suspect *)
-Definition cost_above_threshold (h : Heat) (threshold : Fin) (b : Budget)
-  : (Bool3 * Budget * Heat) :=
+Definition cost_above_threshold (h : Spuren) (threshold : Fin) (b : Budget)
+  : (Bool3 * Budget * Spuren) :=
   le_fin_b3 threshold h b.
 
 (******************************************************************************)
@@ -165,7 +86,7 @@ Definition cost_above_threshold (h : Heat) (threshold : Fin) (b : Budget)
 Definition SelfModel := Observer.
 
 (* Attempting to build a self-model costs budget *)
-Definition build_self_model (obs : Observer) : (SelfModel * Budget * Heat) :=
+Definition build_self_model (obs : Observer) : (SelfModel * Budget * Spuren) :=
   (* Building a model of yourself = copying your state + trajectory.         *)
   (* But copying the trajectory means iterating over it.                     *)
   (* Each step costs. And the model doesn't include the act of modeling.     *)
@@ -174,7 +95,7 @@ Definition build_self_model (obs : Observer) : (SelfModel * Budget * Heat) :=
   match b with
   | fz => (obs, fz, fz)     (* No budget: model = frozen snapshot *)
   | fs b' =>
-    (* Model is observer minus the heat of modeling *)
+    (* Model is observer minus the Spuren of modeling *)
     (mkObserver (obs_state obs) b' nil,   (* trajectory lost — too expensive *)
      b',
      fs fz)
@@ -209,19 +130,19 @@ Definition SignifyingChain := Trajectory.
 
 (* Distance between two hidden states — component-wise, costs budget *)
 Fixpoint state_distance (s1 s2 : HiddenState) (b : Budget)
-  : (Fin * Budget * Heat) :=
+  : (Fin * Budget * Spuren) :=
   match s1, s2, b with
   | [], _, _ => (fz, b, fz)
   | _, [], _ => (fz, b, fz)
   | _, _, fz => (fz, fz, fz)
   | x :: xs, y :: ys, fs b' =>
-    match dist_fin_b_heat x y b' with
+    match dist_fin_b_spur x y b' with
     | (d, b'', h1) =>
       match state_distance xs ys b'' with
       | (d_rest, b''', h2) =>
-        match add_fin_b_heat d d_rest b''' with
+        match add_fin_b_spur d d_rest b''' with
         | (total, b'''', h3) =>
-          (total, b'''', add_heat (add_heat h1 h2) h3)
+          (total, b'''', add_spur (add_spur h1 h2) h3)
         end
       end
     end
@@ -229,7 +150,7 @@ Fixpoint state_distance (s1 s2 : HiddenState) (b : Budget)
 
 (* Information gradient: distance between consecutive states *)
 Definition information_gradient (s1 s2 : HiddenState) (b : Budget)
-  : (Fin * Budget * Heat) :=
+  : (Fin * Budget * Spuren) :=
   state_distance s1 s2 b.
 
 (* Chain state: is the signifying chain still producing new meaning? *)
@@ -242,7 +163,7 @@ Inductive ChainState : Type :=
 Definition update_chain_state
   (prev : ChainState) (gradient : Fin) (threshold : Fin)
   (current_state : HiddenState) (b : Budget)
-  : (ChainState * Budget * Heat) :=
+  : (ChainState * Budget * Spuren) :=
   match le_fin_b3 gradient threshold b with
   | (BTrue, b', h) =>   (* gradient < threshold: losing information *)
     match prev with
@@ -262,7 +183,7 @@ Definition update_chain_state
 
 (* Check if tangling has exceeded the patience threshold *)
 Definition is_tangled (cs : ChainState) (patience : Fin) (b : Budget)
-  : (Bool3 * Budget * Heat) :=
+  : (Bool3 * Budget * Spuren) :=
   match cs with
   | Producing => (BFalse, b, fz)
   | Tangling n => le_fin_b3 patience n b
@@ -290,7 +211,7 @@ Record Apparatus := mkApparatus {
 
 (* Visit a state — costs budget, reduces remaining *)
 Definition visit_state (app : Apparatus) (state : HiddenState) (b : Budget)
-  : (Apparatus * Budget * Heat) :=
+  : (Apparatus * Budget * Spuren) :=
   match b with
   | fz => (app, fz, fz)
   | fs b' =>
@@ -304,7 +225,7 @@ Definition visit_state (app : Apparatus) (state : HiddenState) (b : Budget)
 
 (* Program exhaustion: is the apparatus fully explored? *)
 Definition program_exhausted (app : Apparatus) (b : Budget)
-  : (Bool3 * Budget * Heat) :=
+  : (Bool3 * Budget * Spuren) :=
   fin_eq_b3 (app_remaining app) fz b.
 
 (* Curvature of trajectory — how sharply the path turns.                    *)
@@ -313,14 +234,14 @@ Definition program_exhausted (app : Apparatus) (b : Budget)
 (* We approximate curvature as the difference of consecutive gradients.     *)
 Definition trajectory_curvature
   (s1 s2 s3 : HiddenState) (b : Budget)
-  : (Fin * Budget * Heat) :=
+  : (Fin * Budget * Spuren) :=
   match state_distance s1 s2 b with
   | (g1, b', h1) =>
     match state_distance s2 s3 b' with
     | (g2, b'', h2) =>
-      match dist_fin_b_heat g1 g2 b'' with
+      match dist_fin_b_spur g1 g2 b'' with
       | (curv, b''', h3) =>
-        (curv, b''', add_heat (add_heat h1 h2) h3)
+        (curv, b''', add_spur (add_spur h1 h2) h3)
       end
     end
   end.
@@ -347,7 +268,7 @@ Record DoubleBind := mkDoubleBind {
 (* stepping outside the frame. But stepping outside costs.                  *)
 (* Meta-observation: observing the frame instead of answering within it.    *)
 Definition escape_double_bind (db : DoubleBind) (b : Budget)
-  : (Bool3 * Budget * Heat) :=
+  : (Bool3 * Budget * Spuren) :=
   match b with
   | fz => (BUnknown, fz, fz)    (* No budget: stuck in bind *)
   | fs b' =>
@@ -385,7 +306,7 @@ Axiom B_min_positive : exists n, B_min_reproduce = fs (fs (fs n)).
 
 (* Spawn a sub-observer: splits budget between parent and child *)
 Definition spawn_sub_observer (parent : Observer) (b : Budget)
-  : (option Observer * Observer * Budget * Heat) :=
+  : (option Observer * Observer * Budget * Spuren) :=
   match le_fin_b3 B_min_reproduce b b with
   | (BTrue, b', h) =>
     (* Can reproduce: split remaining budget *)
@@ -394,7 +315,7 @@ Definition spawn_sub_observer (parent : Observer) (b : Budget)
     | fs b'' =>
       let child := mkObserver (obs_state parent) b'' nil in
       let parent' := mkObserver (obs_state parent) b'' (obs_trajectory parent) in
-      (Some child, parent', b'', add_heat h (fs fz))
+      (Some child, parent', b'', add_spur h (fs fz))
     end
   | (BFalse, b', h) => (None, parent, b', h)    (* Too poor to reproduce *)
   | (BUnknown, b', h) => (None, parent, b', h)  (* Can't even tell *)
@@ -403,9 +324,9 @@ Definition spawn_sub_observer (parent : Observer) (b : Budget)
 (* DDF — Dynamic Distinguishability Function                                *)
 (* Observation changes BOTH observer and observed.                          *)
 (* Neither party exits the interaction unchanged.                           *)
-(* Both pay heat. This is measurement as thermodynamic exchange.            *)
+(* Both pay Spuren. This is measurement as thermodynamic exchange.            *)
 Definition ddf (obs : Observer) (target : HiddenState) (b : Budget)
-  : (Observation * Observer * HiddenState * Budget * Heat) :=
+  : (Observation * Observer * HiddenState * Budget * Spuren) :=
   match b with
   | fz =>
     (* No budget: observation fails, both unchanged *)
@@ -441,7 +362,7 @@ Definition ddf (obs : Observer) (target : HiddenState) (b : Budget)
 (* Post-DDF trajectory is strictly longer than pre-DDF trajectory.          *)
 Theorem observation_changes_observer : forall obs target,
   obs_budget obs <> fz ->
-  exists b' : Budget, exists h : Heat,
+  exists b' : Budget, exists h : Spuren,
     let '(_, obs', _, _, _) := ddf obs target (obs_budget obs) in
     length (obs_trajectory obs') > length (obs_trajectory obs).
 Proof.
@@ -464,7 +385,7 @@ Axiom variety_law : forall (obs : Observer) (system : list HiddenState),
 (******************************************************************************)
 (* VIII. FRISTON — Free Energy and Prediction Error                         *)
 (*                                                                           *)
-(* The observer predicts. Prediction error costs heat.                      *)
+(* The observer predicts. Prediction error costs Spuren.                      *)
 (* Three responses: update model, act on world, or mark BUnknown.           *)
 (* The third response — reducing precision — is the VOID response.          *)
 (******************************************************************************)
@@ -474,7 +395,7 @@ Definition Prediction := HiddenState.
 
 (* Prediction error: distance between predicted and actual *)
 Definition prediction_error (predicted actual : HiddenState) (b : Budget)
-  : (Fin * Budget * Heat) :=
+  : (Fin * Budget * Spuren) :=
   state_distance predicted actual b.
 
 (* Markov blanket: the boundary of the observer.                            *)
@@ -483,7 +404,7 @@ Definition prediction_error (predicted actual : HiddenState) (b : Budget)
 Record MarkovBlanket := mkBlanket {
   blanket_sensory : list Observable;     (* incoming signals *)
   blanket_active  : list Observable;     (* outgoing actions *)
-  blanket_cost    : Heat;                (* maintenance cost per step *)
+  blanket_cost    : Spuren;                (* maintenance cost per step *)
 }.
 
 (* Three responses to prediction error — Friston's trinity *)
@@ -498,7 +419,7 @@ Inductive FreeEnergyResponse : Type :=
 Definition free_energy_response
   (error : Fin) (threshold : Fin) (b : Budget)
   (predicted : HiddenState)
-  : (FreeEnergyResponse * Budget * Heat) :=
+  : (FreeEnergyResponse * Budget * Spuren) :=
   match b with
   | fz => (ReducePrecision, fz, fz)  (* No budget: must ignore *)
   | fs b' =>
@@ -510,7 +431,7 @@ Definition free_energy_response
       (* Error above threshold: need to update *)
       match b'' with
       | fz => (ReducePrecision, fz, h)  (* Want to update but can't afford *)
-      | fs b''' => (UpdateModel predicted, b''', add_heat h (fs fz))
+      | fs b''' => (UpdateModel predicted, b''', add_spur h (fs fz))
       end
     | (BUnknown, b'', h) =>
       (* Can't even measure the error properly *)
@@ -523,27 +444,27 @@ Definition free_energy_response
 (*                                                                           *)
 (* The observer can incorporate external systems.                           *)
 (* Notebook, calculator, Claude, Gemini, GPT — all extensions.              *)
-(* Each extension costs heat. Diminishing returns are real.                 *)
+(* Each extension costs Spuren. Diminishing returns are real.                 *)
 (******************************************************************************)
 
 (* An extension: an external system the observer can query *)
 Record Extension := mkExtension {
-  ext_query_cost  : Heat;        (* cost per query *)
+  ext_query_cost  : Spuren;        (* cost per query *)
   ext_reliability : Fin;         (* how often it gives useful answers *)
   ext_domain      : Observable;  (* what it knows about *)
 }.
 
 (* Query an extension — costs budget, may or may not help *)
 Definition query_extension (ext : Extension) (query : Observable) (b : Budget)
-  : (Bool3 * Budget * Heat) :=
+  : (Bool3 * Budget * Spuren) :=
   let cost := ext_query_cost ext in
   match le_fin_b3 cost b b with
   | (BTrue, b', h1) =>
     (* Can afford the query *)
-    match sub_saturate_b_heat b cost b' with
+    match sub_saturate_b_spur b cost b' with
     | (b'', b_after, h2) =>
       (* Query succeeds based on reliability — simplified *)
-      (BTrue, b_after, add_heat h1 h2)
+      (BTrue, b_after, add_spur h1 h2)
     end
   | (BFalse, b', h) => (BUnknown, b', h)  (* Can't afford *)
   | (BUnknown, b', h) => (BUnknown, b', h)
@@ -575,17 +496,17 @@ Record Consortium := mkConsortium {
 (* Two observables are complementary if measuring one prevents measuring the other.
    We don't try to reach into the DDF tuple — complementarity is about COST.
    If cost_x + cost_y > budget, you must choose. That's all Bohr says. *)
-Definition Complementary (cost_x cost_y : Heat) (b : Budget) : Prop :=
+Definition Complementary (cost_x cost_y : Spuren) (b : Budget) : Prop :=
   forall b_after h,
-    add_fin_b_heat cost_x cost_y b = (b_after, b, h) ->
+    add_fin_b_spur cost_x cost_y b = (b_after, b, h) ->
     (* total cost exceeds what we started with — can't afford both *)
     leF b b_after.
 
 (* Simplified complementarity: budget partition is exclusive *)
-Definition complementary_pair (cost_x cost_y : Heat) (b : Budget)
-  : (Bool3 * Budget * Heat) :=
+Definition complementary_pair (cost_x cost_y : Spuren) (b : Budget)
+  : (Bool3 * Budget * Spuren) :=
   (* Can we afford both? *)
-  match add_fin_b_heat cost_x cost_y b with
+  match add_fin_b_spur cost_x cost_y b with
   | (total_cost, b', h) =>
     le_fin_b3 total_cost b b'
   end.
@@ -596,8 +517,8 @@ Definition complementary_pair (cost_x cost_y : Heat) (b : Budget)
 
 (* Observation choice: given limited budget, what do you look at? *)
 Definition observation_choice
-  (observables : list Observable) (costs : list Heat) (b : Budget)
-  : (list Bool3 * Budget * Heat) :=
+  (observables : list Observable) (costs : list Spuren) (b : Budget)
+  : (list Bool3 * Budget * Spuren) :=
   (* For each observable: can we afford it given what we've already spent? *)
   (* This is a greedy partition — first observables get priority.          *)
   (* The ORDER of observation matters. This is not neutral.                *)
@@ -624,7 +545,7 @@ Definition observation_choice
 (* Indistinguishability under budget *)
 Definition indistinguishable
   (obs : Observer) (s1 s2 : HiddenState) (b : Budget)
-  : (Bool3 * Budget * Heat) :=
+  : (Bool3 * Budget * Spuren) :=
   match state_distance s1 s2 b with
   | (dist, b', h) =>
     (* If distance is zero (or budget ran out making it look zero): same *)
@@ -696,7 +617,7 @@ Record ObservationStep := mkStep {
   step_curvature : Fin;
   step_stopped : option StoppedReason;
   step_budget_remaining : Budget;
-  step_heat_emitted : Heat;
+  step_heat_emitted : Spuren;
 }.
 
 (******************************************************************************)
@@ -726,20 +647,20 @@ Record TransductionCut := mkCut {
 
 (* Apply the cut — this IS VOID-IN *)
 Definition transduce (sig : Signal) (cut : TransductionCut) (b : Budget)
-  : (Bool3 * Budget * Heat) :=
+  : (Bool3 * Budget * Spuren) :=
   (* Is signal above the high threshold? *)
   match le_fin_b3 (cut_high cut) (sig_value sig) b with
   | (BTrue, b', h1) => (BTrue, b', h1)       (* clearly above *)
   | (BFalse, b', h1) =>
     (* Signal is below high. Is it also below low? *)
     match le_fin_b3 (sig_value sig) (cut_low cut) b' with
-    | (BTrue, b'', h2) => (BFalse, b'', add_heat h1 h2)  (* clearly below *)
+    | (BTrue, b'', h2) => (BFalse, b'', add_spur h1 h2)  (* clearly below *)
     | (BFalse, b'', h2) =>
       (* Between low and high: the BUnknown band *)
-      (BUnknown, b'', add_heat h1 h2)
+      (BUnknown, b'', add_spur h1 h2)
     | (BUnknown, b'', h2) =>
       (* Can't even tell where we are — BUnknown *)
-      (BUnknown, b'', add_heat h1 h2)
+      (BUnknown, b'', add_spur h1 h2)
     end
   | (BUnknown, b', h1) => (BUnknown, b', h1) (* budget ran out mid-cut *)
   end.
@@ -751,7 +672,7 @@ Definition transduce (sig : Signal) (cut : TransductionCut) (b : Budget)
 
 (* The cost of resolution: finer signal costs more *)
 Definition resolution_cost (sig : Signal) (b : Budget)
-  : (Heat * Budget * Heat) :=
+  : (Spuren * Budget * Spuren) :=
   (* Each grain of resolution costs one tick to process *)
   match le_fin_b3 (sig_resolution sig) b b with
   | (BTrue, b', h) => (sig_resolution sig, b', h) (* can afford full resolution *)
@@ -783,7 +704,7 @@ Definition AttractorHistory := list Attractor.
 (* Check if current state is near a known attractor *)
 Fixpoint find_nearest_attractor
   (state : HiddenState) (history : AttractorHistory) (b : Budget)
-  : (option Attractor * Budget * Heat) :=
+  : (option Attractor * Budget * Spuren) :=
   match history, b with
   | [], _ => (None, b, fz)
   | _, fz => (None, fz, fz)
@@ -795,12 +716,12 @@ Fixpoint find_nearest_attractor
         (* Close enough: this IS the attractor. Increment count. *)
         (Some (mkAttractor
           (attr_center attr) (attr_radius attr) (fs (attr_count attr))),
-         b''', add_heat h1 h2)
+         b''', add_spur h1 h2)
       | (_, b''', h2) =>
         (* Not this one. Check the rest. *)
         match find_nearest_attractor state rest b''' with
         | (result, b'''', h3) =>
-          (result, b'''', add_heat (add_heat h1 h2) h3)
+          (result, b'''', add_spur (add_spur h1 h2) h3)
         end
       end
     end
@@ -808,7 +729,7 @@ Fixpoint find_nearest_attractor
 
 (* Is this a RECURRENCE? Has the observer returned to a known wound? *)
 Definition is_recurrence (attr : option Attractor) (threshold : Fin) (b : Budget)
-  : (Bool3 * Budget * Heat) :=
+  : (Bool3 * Budget * Spuren) :=
   match attr with
   | None => (BFalse, b, fz)       (* no attractor found — new territory *)
   | Some a =>
@@ -850,10 +771,10 @@ Record Token := mkToken {
 
 (* Attention cost: function of position and age *)
 Definition attention_cost (tok : Token) (b : Budget)
-  : (Heat * Budget * Heat) :=
+  : (Spuren * Budget * Spuren) :=
   (* Cost = base cost + age penalty *)
   (* Older tokens are harder to attend to — memory decays *)
-  match add_fin_b_heat (fs fz) (tok_age tok) b with
+  match add_fin_b_spur (fs fz) (tok_age tok) b with
   | (cost, b', h) => (cost, b', h)
   end.
 
@@ -862,7 +783,7 @@ Definition attention_cost (tok : Token) (b : Budget)
 (* you can afford before budget runs out.                                   *)
 Fixpoint attend_sequence
   (tokens : list Token) (b : Budget) (acc : list (Token * Bool3))
-  : (list (Token * Bool3) * Budget * Heat) :=
+  : (list (Token * Bool3) * Budget * Spuren) :=
   match tokens, b with
   | [], _ => (rev acc, b, fz)
   | _, fz => (rev acc, fz, fz)    (* budget gone: rest is BUnknown *)
@@ -872,17 +793,17 @@ Fixpoint attend_sequence
       match le_fin_b3 cost b'' b'' with
       | (BTrue, b''', h2) =>
         (* Can afford this token *)
-        match sub_saturate_b_heat b''' cost b''' with
+        match sub_saturate_b_spur b''' cost b''' with
         | (_, b_after, h3) =>
           attend_sequence rest b_after
             ((tok, BTrue) :: acc)
         end
       | (BFalse, b''', h2) =>
         (* Can't afford: mark BUnknown, skip rest *)
-        (rev ((tok, BUnknown) :: acc), b''', add_heat h1 h2)
+        (rev ((tok, BUnknown) :: acc), b''', add_spur h1 h2)
       | (BUnknown, b''', h2) =>
         (* Can't even tell: mark BUnknown *)
-        (rev ((tok, BUnknown) :: acc), b''', add_heat h1 h2)
+        (rev ((tok, BUnknown) :: acc), b''', add_spur h1 h2)
       end
     end
   end.
@@ -890,7 +811,7 @@ Fixpoint attend_sequence
 (* The effective context window: how many tokens were actually attended to? *)
 (* Counting costs budget — even asking "how many did I attend?" is not free *)
 Fixpoint effective_window
-  (result : list (Token * Bool3)) (b : Budget) : (Fin * Budget * Heat) :=
+  (result : list (Token * Bool3)) (b : Budget) : (Fin * Budget * Spuren) :=
   match result, b with
   | [], _ => (fz, b, fz)
   | _, fz => (fz, fz, fz)
@@ -924,7 +845,7 @@ Definition Vote := Bool3.
 
 (* Count votes by category *)
 Fixpoint count_votes (votes : list Vote) (b : Budget)
-  : (Fin * Fin * Fin * Budget * Heat) :=  (* trues, falses, unknowns *)
+  : (Fin * Fin * Fin * Budget * Spuren) :=  (* trues, falses, unknowns *)
   match votes, b with
   | [], _ => (fz, fz, fz, b, fz)
   | _, fz => (fz, fz, fz, fz, fz)
@@ -944,7 +865,7 @@ Fixpoint count_votes (votes : list Vote) (b : Budget)
 (* This is not conservative — it is HONEST.                                 *)
 (* A jury with one confused juror is not a jury with a clear verdict.       *)
 Definition consortium_vote (votes : list Vote) (b : Budget)
-  : (Bool3 * Budget * Heat) :=
+  : (Bool3 * Budget * Spuren) :=
   match count_votes votes b with
   | (_, _, u, b', h) =>
     (* ANY unknowns? Then the whole vote is infected. *)
@@ -954,9 +875,9 @@ Definition consortium_vote (votes : list Vote) (b : Budget)
       match count_votes votes b' with
       | (t, f, _, b'', h2) =>
         match le_fin_b3 f t b'' with
-        | (BTrue, b''', h3) => (BTrue, b''', add_heat (add_heat h h2) h3)
-        | (BFalse, b''', h3) => (BFalse, b''', add_heat (add_heat h h2) h3)
-        | (BUnknown, b''', h3) => (BUnknown, b''', add_heat (add_heat h h2) h3)
+        | (BTrue, b''', h3) => (BTrue, b''', add_spur (add_spur h h2) h3)
+        | (BFalse, b''', h3) => (BFalse, b''', add_spur (add_spur h h2) h3)
+        | (BUnknown, b''', h3) => (BUnknown, b''', add_spur (add_spur h h2) h3)
         end
       end
     | fs _ => (BUnknown, b', h)  (* BUnknown present: infects everything *)
@@ -986,12 +907,12 @@ Qed.
 (*                                                                           *)
 (* Recovery is NOT generating new budget from nothing.                      *)
 (* Recovery is: the observer STOPS OBSERVING.                               *)
-(* No new observations = no new heat = budget stops draining.               *)
+(* No new observations = no new Spuren = budget stops draining.               *)
 (* Existing wounds undergo memory decay (void_time_memory_composition.v).   *)
 (* The attractor doesn't vanish — its strength decays.                      *)
 (*                                                                           *)
 (* Half a year of crying is not wasted time.                                *)
-(* It is a sequence of ticks where heat emission approaches zero.           *)
+(* It is a sequence of ticks where Spuren emission approaches zero.           *)
 (* The observer is still alive. Budget is still finite.                     *)
 (* But the RATE OF LOSS drops. That is recovery.                            *)
 (******************************************************************************)
@@ -1004,20 +925,20 @@ Record Damage := mkDamage {
 }.
 
 (* Recovery step: one tick where the observer does NOT observe.             *)
-(* No observation = no DDF = no heat from observation.                      *)
+(* No observation = no DDF = no Spuren from observation.                      *)
 (* The only cost is the tick itself (existence costs).                      *)
 Definition recovery_step (obs : Observer) (b : Budget)
-  : (Observer * Budget * Heat) :=
+  : (Observer * Budget * Spuren) :=
   match b with
   | fz => (obs, fz, fz)
   | fs b' =>
-    (* One tick passes. No observation. Minimal heat: just existing. *)
+    (* One tick passes. No observation. Minimal Spuren: just existing. *)
     (mkObserver
       (obs_state obs)
       b'                          (* budget decreases by existence cost *)
       (obs_trajectory obs),       (* trajectory UNCHANGED — no new observations *)
      b',
-     fs fz)                       (* heat of existing: one tick *)
+     fs fz)                       (* Spuren of existing: one tick *)
   end.
 
 (* Recovery sequence: n ticks of not-observing.                             *)
@@ -1025,14 +946,14 @@ Definition recovery_step (obs : Observer) (b : Budget)
 (* Compare with observation: budget drops by cost-of-DDF, trajectory grows. *)
 (* Recovery is cheaper per tick. That's the whole mechanism.                *)
 Fixpoint recovery_sequence (obs : Observer) (n : Fin) (b : Budget)
-  : (Observer * Budget * Heat) :=
+  : (Observer * Budget * Spuren) :=
   match n with
   | fz => (obs, b, fz)
   | fs n' =>
     match recovery_step obs b with
     | (obs', b', h1) =>
       match recovery_sequence obs' n' b' with
-      | (obs'', b'', h2) => (obs'', b'', add_heat h1 h2)
+      | (obs'', b'', h2) => (obs'', b'', add_spur h1 h2)
       end
     end
   end.
@@ -1060,8 +981,8 @@ Proof.
       rewrite Erec in IH. simpl in IH. exact IH.
 Qed.
 
-(* THEOREM: Recovery heat is exactly one per tick.                          *)
-(* Observation heat is variable (DDF cost). Recovery heat is constant.      *)
+(* THEOREM: Recovery Spuren is exactly one per tick.                          *)
+(* Observation Spuren is variable (DDF cost). Recovery Spuren is constant.      *)
 (* That's why recovery works: predictable, minimal drain.                   *)
 
 (******************************************************************************)
@@ -1082,30 +1003,30 @@ Qed.
 (* Asymmetric observation result *)
 Record AsymmetricDDF := mkAsymDDF {
   addf_observation   : Observation;
-  addf_observer_heat : Heat;   (* cost to the one who looks *)
-  addf_target_heat   : Heat;   (* cost to the one looked at *)
+  addf_observer_spur : Spuren;   (* cost to the one who looks *)
+  addf_target_spur   : Spuren;   (* cost to the one looked at *)
   addf_observer_new  : Observer;
   addf_target_new    : HiddenState;
 }.
 
-(* The power ratio: observer_heat / target_heat                             *)
+(* The power ratio: observer_spur / target_spur                             *)
 (* When this is high: observer pays more than target — exploitation.        *)
 (* When this is low: target pays more — the observer has power.             *)
 (* When budget runs out before we can compute it: BUnknown — can't tell    *)
 (* who's being exploited.                                                   *)
 Definition power_ratio (result : AsymmetricDDF) (b : Budget)
-  : (Fin * Fin * Bool3 * Budget * Heat) :=
-  (* Returns (observer_heat, target_heat, who_pays_more, budget, heat) *)
-  match le_fin_b3 (addf_observer_heat result) (addf_target_heat result) b with
+  : (Fin * Fin * Bool3 * Budget * Spuren) :=
+  (* Returns (observer_spur, target_spur, who_pays_more, budget, Spuren) *)
+  match le_fin_b3 (addf_observer_spur result) (addf_target_spur result) b with
   | (BTrue, b', h) =>
-    (* observer_heat <= target_heat: observer has power *)
-    (addf_observer_heat result, addf_target_heat result, BFalse, b', h)
+    (* observer_spur <= target_spur: observer has power *)
+    (addf_observer_spur result, addf_target_spur result, BFalse, b', h)
   | (BFalse, b', h) =>
-    (* observer_heat > target_heat: observer is exploited *)
-    (addf_observer_heat result, addf_target_heat result, BTrue, b', h)
+    (* observer_spur > target_spur: observer is exploited *)
+    (addf_observer_spur result, addf_target_spur result, BTrue, b', h)
   | (BUnknown, b', h) =>
     (* can't tell *)
-    (addf_observer_heat result, addf_target_heat result, BUnknown, b', h)
+    (addf_observer_spur result, addf_target_spur result, BUnknown, b', h)
   end.
 
 (* Perform asymmetric DDF *)
@@ -1113,7 +1034,7 @@ Definition asymmetric_ddf
   (obs : Observer) (target : HiddenState)
   (vulnerability : Fin)  (* how open the observer is — 0 = closed, high = open *)
   (b : Budget)
-  : (AsymmetricDDF * Budget * Heat) :=
+  : (AsymmetricDDF * Budget * Spuren) :=
   match b with
   | fz =>
     (mkAsymDDF (mkObservation target fz BUnknown) fz fz obs target,
@@ -1129,9 +1050,9 @@ Definition asymmetric_ddf
     | fs b'' =>
       (* Observer's cost: base cost + vulnerability *)
       (* The more open you are, the more you pay *)
-      let observer_heat := add_simple (fs (fs fz)) vulnerability in
+      let observer_spur := add_simple (fs (fs fz)) vulnerability in
       (* Target's cost: base cost only (fs fz) — target doesn't choose openness *)
-      let target_heat := fs fz in
+      let target_spur := fs fz in
       let obs' := mkObserver
         (obs_state obs) b''
         (target :: obs_trajectory obs) in
@@ -1140,10 +1061,10 @@ Definition asymmetric_ddf
         | x :: xs => (fs x) :: xs
         end in
       (mkAsymDDF
-        (mkObservation target observer_heat BTrue)
-        observer_heat target_heat
+        (mkObservation target observer_spur BTrue)
+        observer_spur target_spur
         obs' target',
-       b'', add_simple observer_heat target_heat)
+       b'', add_simple observer_spur target_spur)
     end
   end.
 
@@ -1152,91 +1073,6 @@ Definition asymmetric_ddf
 (* This is not a moral failing. It is thermodynamics.                       *)
 (* But it explains why some people grow tumors                              *)
 (* and others walk away whistling.                                          *)
-
-(******************************************************************************)
-(* XX. BRIDGES — Connecting Observer to the Ecosystem                        *)
-(*                                                                           *)
-(* void_observer.v defines the Observer from first principles.               *)
-(* But the Observer does not exist in isolation — it interacts with:         *)
-(*   - TIME (void_time_memory_composition.v) — tick as evidence of change   *)
-(*   - ENTROPY (void_entropy.v) — measuring disorder in trajectories        *)
-(*   - TRANSDUCTION (void_sensory_transduction.v) — normalizing inputs      *)
-(*   - DDF (void_distinguishability.v) — probabilistic distinguishability   *)
-(*   - COLLAPSE (void_observer_collapse.v) — entanglement between observers *)
-(*   - ATTENTION (void_attention_cost.v) — maintenance as budget drain      *)
-(*   - MEMORY (void_temporal_memory.v) — traces with age and decay          *)
-(*   - RESONANCE (void_resonance.v) — attractors finding resonant locations *)
-(*   - CRISIS (void_crisis_relocation.v) — emergency response costs         *)
-(*   - FLOW (void_budget_flow.v) — budget moving through landscapes         *)
-(*   - COMPLEXITY (void_budgeted_complexity.v) — emergence from rules       *)
-(*   - PROCESS (void_process_memory.v) — self-regenerating patterns         *)
-(*                                                                           *)
-(* These bridge definitions connect void_observer types to the ecosystem    *)
-(* without replacing them. Onto-epistemology: the same entity described     *)
-(* from different angles, each costing budget to maintain.                   *)
-(******************************************************************************)
-
-(* BRIDGE: Our trajectory → entropy measurement.                             *)
-(* How disordered is the observer's history?                                 *)
-(* A tangled trajectory has LOW entropy — it keeps revisiting the same      *)
-(* states. A producing trajectory has HIGH entropy — new states each time.  *)
-Definition trajectory_entropy (traj : Trajectory) (b : Budget)
-  : (Fin * Budget) :=
-  (* Flatten hidden states to list of Fin, then measure entropy *)
-  match traj with
-  | [] => (fz, b)
-  | hs :: _ =>
-    (* Use first hidden state as representative sample *)
-    entropy_b hs b
-  end.
-
-(* BRIDGE: Our state_distance → distinguishability module.                   *)
-(* void_observer uses component-wise Fin distance.                           *)
-(* void_distinguishability uses probabilistic FinProb distance.              *)
-(* Both cost budget. Both measure "how different are these two things?"      *)
-(* The choice of distance metric IS the transduction cut (Section XIV).      *)
-
-(* BRIDGE: Our ChainState → temporal memory decay.                           *)
-(* When the chain tangles, it's the same mechanism as memory trace decay    *)
-(* in void_temporal_memory.v: strength drops, age increases, eventually     *)
-(* the trace vanishes. Tangling IS memory decay applied to discourse.       *)
-
-(* BRIDGE: Our Attractor → resonance location.                               *)
-(* An attractor in void_observer is a state the trajectory returns to.       *)
-(* A resonant location in void_resonance.v is a point that amplifies        *)
-(* patterns matching its frequency. Same topological fact:                   *)
-(* finite state spaces have fixed points that attract trajectories.          *)
-
-(* BRIDGE: Our recovery_step → crisis_relocation.                            *)
-(* Recovery (Section XVIII) is the cheapest possible crisis response:        *)
-(* stop observing, pay only existence cost.                                  *)
-(* void_crisis_relocation.v formalizes the EXPENSIVE crisis responses:       *)
-(* emergency relocation, resource reallocation, pattern evacuation.          *)
-(* Recovery is what happens when you can't even afford crisis management.   *)
-
-(* BRIDGE: Observer budget → budget flow.                                     *)
-(* void_budget_flow.v models how budget moves through a network.             *)
-(* The Observer's budget is one node in that network.                        *)
-(* Budget doesn't appear from nowhere (recovery doesn't generate budget).   *)
-(* It flows from other nodes via ecological_move and mutual_aid.            *)
-
-(* BRIDGE: Our DDF → observer collapse backaction.                           *)
-(* void_observer_collapse.v formalizes what happens when TWO observers       *)
-(* observe the SAME pattern simultaneously: entanglement, Zeno freezing,    *)
-(* measurement backaction. Our DDF (Section VII) is the single-observer     *)
-(* case. Collapse is the multi-observer generalization.                     *)
-
-(* BRIDGE: Attention budget → attention cost maintenance.                     *)
-(* void_attention_cost.v provides MaintenanceState and attention_scheduler.  *)
-(* Our attend_sequence (Section XVI) is a simplified local version.          *)
-(* The full attention_scheduler handles adaptive resolution:                 *)
-(* when maintenance cost exceeds threshold, the observer reduces precision. *)
-
-(* BRIDGE: Consortium → process memory self-regeneration.                    *)
-(* void_process_memory.v shows how patterns approximately regenerate.        *)
-(* A consortium (Section XVII) is a group that COLLECTIVELY self-maintains. *)
-(* Individual observers decay. The consortium pattern persists               *)
-(* through mutual regeneration — each observer refreshing the others.       *)
 
 (******************************************************************************)
 (*  THE ADMITTED — On the Source of Budget                                   *)
@@ -1255,8 +1091,7 @@ Definition trajectory_entropy (traj : Trajectory) (b : Budget)
 (*  and count every tick until it runs out.                                  *)
 (*                                                                           *)
 (*  The body discovered conservation law before the mind did.               *)
-(*  Twenty sections now. The ecosystem grows.                               *)
-(*  Each bridge costs a tick to cross.                                       *)
+(*  These nineteen sections are the formalization of that discovery.        *)
 (*                                                                           *)
 (******************************************************************************)
 

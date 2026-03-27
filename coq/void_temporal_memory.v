@@ -35,7 +35,7 @@ Record MemoryTrace := {
   trace_pattern : Pattern;
   trace_strength : FinProb;
   trace_age : Fin;
-  trace_heat : Heat;
+  trace_spur : Spuren;
   last_refreshed : Fin
 }.
 
@@ -43,7 +43,7 @@ Record MemoryState := {
   traces : list MemoryTrace;
   current_tick : Fin;
   memory_budget : Budget;
-  accumulated_heat : Heat
+  accumulated_spur : Spuren
 }.
 
 (******************************************************************************)
@@ -82,7 +82,7 @@ Definition decay_trace (trace : MemoryTrace) (b : Budget)
               ({| trace_pattern := trace_pattern trace;
                   trace_strength := new_strength;
                   trace_age := new_age;
-                  trace_heat := add_heat (trace_heat trace) operation_cost;
+                  trace_spur := add_spur (trace_spur trace) operation_cost;
                   last_refreshed := last_refreshed trace |}, b2)
           end
       end
@@ -127,7 +127,7 @@ Definition refresh_trace (trace : MemoryTrace) (tick : Fin) (b : Budget)
               ({| trace_pattern := trace_pattern trace;
                   trace_strength := boost_strength (trace_strength trace);
                   trace_age := fz;
-                  trace_heat := add_heat (trace_heat trace) cost;
+                  trace_spur := add_spur (trace_spur trace) cost;
                   last_refreshed := tick |}, b2)
           end
       | (false, b1) => (trace, b1)
@@ -139,7 +139,7 @@ Definition record_trace (pattern : Pattern) (tick : Fin) : MemoryTrace :=
   {| trace_pattern := pattern;
      trace_strength := strength pattern;
      trace_age := fz;
-     trace_heat := operation_cost;
+     trace_spur := operation_cost;
      last_refreshed := tick |}.
 
 (******************************************************************************)
@@ -233,13 +233,13 @@ Definition tick_forward (state : MemoryState) : MemoryState :=
           match decay_all_traces (traces state) b1 with
           | (decayed, b2) =>
               let surviving := forget_collapsed decayed in
-              let heat := match sub_fin (fs b') b2 (fs b') with
+              let sp := match sub_fin (fs b') b2 (fs b') with
                          | (consumed, _) => consumed
                          end in
               {| traces := surviving;
                  current_tick := new_tick;
                  memory_budget := b2;
-                 accumulated_heat := add_heat (accumulated_heat state) heat |}
+                 accumulated_spur := add_spur (accumulated_spur state) sp |}
           end
       end
   end.
@@ -264,7 +264,7 @@ Definition record_pattern (state : MemoryState) (pattern : Pattern)
           {| traces := new_trace :: traces state;
              current_tick := current_tick state;
              memory_budget := b_new;
-             accumulated_heat := add_heat (accumulated_heat state) cost |}
+             accumulated_spur := add_spur (accumulated_spur state) cost |}
       end
   end.
 
@@ -275,28 +275,28 @@ Definition refresh_location (state : MemoryState) (loc : Fin)
                            (current_tick state)
                            (memory_budget state) with
   | (refreshed, b_new) =>
-      let heat := match sub_fin (memory_budget state) b_new 
+      let sp := match sub_fin (memory_budget state) b_new 
                               (memory_budget state) with
                  | (consumed, _) => consumed
                  end in
       {| traces := refreshed;
          current_tick := current_tick state;
          memory_budget := b_new;
-         accumulated_heat := add_heat (accumulated_heat state) heat |}
+         accumulated_spur := add_spur (accumulated_spur state) sp |}
   end.
 
 (* Consolidate memory *)
 Definition consolidate_memory (state : MemoryState) : MemoryState :=
   match consolidate_adjacent (traces state) (memory_budget state) with
   | (consolidated, b_new) =>
-      let heat := match sub_fin (memory_budget state) b_new 
+      let sp := match sub_fin (memory_budget state) b_new 
                               (memory_budget state) with
                  | (consumed, _) => consumed
                  end in
       {| traces := consolidated;
          current_tick := current_tick state;
          memory_budget := b_new;
-         accumulated_heat := add_heat (accumulated_heat state) heat |}
+         accumulated_spur := add_spur (accumulated_spur state) sp |}
   end.
 
 (******************************************************************************)
@@ -324,7 +324,7 @@ End Void_Temporal_Memory.
 (* 2. Build from verified foundations                                        *)
 (* 3. Make code obviously correct by composition                             *)
 (*                                                                            *)
-(* TIME IS HEAT - Each tick accumulates consumed budget as heat              *)
+(* TIME IS HEAT - Each tick accumulates consumed budget as Spuren              *)
 (* MEMORY IS MAINTENANCE - Traces decay unless actively refreshed            *)
 (* PARTIAL IS HONEST - fold_left stops when budget exhausts                  *)
 (* COMPOSITION OVER RECURSION - Build from proven primitives                 *)

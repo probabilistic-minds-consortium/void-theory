@@ -23,7 +23,7 @@ Import Void_Arithmetic.
 (******************************************************************************)
 
 (* Type aliases for clarity *)
-Definition Heat := Fin.
+Definition Spuren := Fin.
 
 (* Information content of a state *)
 Definition InformationContent := FinProb.
@@ -47,7 +47,7 @@ Class ReadOperation (A B : Type) := {
 
 (* WRITE Operation: Changes universe's distinguishable content *)
 Class WriteOperation (A B : Type) := {
-  write_op : A -> Budget -> (B * Budget * Heat)
+  write_op : A -> Budget -> (B * Budget * Spuren)
 }.
 
 (******************************************************************************)
@@ -75,10 +75,10 @@ Instance distinguishability_read : ReadOperation (Pattern * Pattern) FinProb := 
   read_op := fun '(p1, p2) => read_distinguishability p1 p2
 }.
 
-(* Heat tracking - reading computational history *)
-Definition read_heat_level (h : Heat) : Fin := h.
+(* Spuren tracking - reading computational history *)
+Definition read_heat_level (h : Spuren) : Fin := h.
 
-Instance heat_tracking_read : ReadOperation Heat Fin := {
+Instance spur_tracking_read : ReadOperation Spuren Fin := {
   read_op := read_heat_level
 }.
 
@@ -103,8 +103,8 @@ Instance list_length_read {A : Type} : ReadOperation (list A) Fin := {
 (******************************************************************************)
 
 (* Arithmetic computation - generates new numeric information *)
-Definition write_addition (n m : Fin) (b : Budget) : (Fin * Budget * Heat) :=
-  match add_fin_heat n m b with
+Definition write_addition (n m : Fin) (b : Budget) : (Fin * Budget * Spuren) :=
+  match add_fin_spur n m b with
   | (result, b', h) => (result, b', h)
   end.
 
@@ -112,8 +112,8 @@ Instance addition_write : WriteOperation (Fin * Fin) Fin := {
   write_op := fun '(n, m) => write_addition n m
 }.
 
-Definition write_multiplication (n m : Fin) (b : Budget) : (Fin * Budget * Heat) :=
-  match mult_fin_heat n m b with
+Definition write_multiplication (n m : Fin) (b : Budget) : (Fin * Budget * Spuren) :=
+  match mult_fin_spur n m b with
   | (result, b', h) => (result, b', h)
   end.
 
@@ -123,7 +123,7 @@ Instance multiplication_write : WriteOperation (Fin * Fin) Fin := {
 
 (* Pattern movement - creates new distinguishable state *)
 Definition write_pattern_move (p : Pattern) (direction : bool) (b : Budget) 
-  : (Pattern * Budget * Heat) :=
+  : (Pattern * Budget * Spuren) :=
   match b with
   | fz => (p, fz, fz)
   | fs b' =>
@@ -137,7 +137,7 @@ Instance pattern_movement_write : WriteOperation (Pattern * bool) Pattern := {
 }.
 
 (* Entropy creation - increases universe information content *)
-Definition write_entropy_increase (loc amount : Fin) (b : Budget) : (Fin * Budget * Heat) :=
+Definition write_entropy_increase (loc amount : Fin) (b : Budget) : (Fin * Budget * Spuren) :=
   match b with
   | fz => (loc, fz, fz)
   | fs b' => 
@@ -153,22 +153,23 @@ Instance entropy_creation_write : WriteOperation (Fin * Fin) Fin := {
 (* INFORMATION CONSERVATION PRINCIPLES                                        *)
 (******************************************************************************)
 
-(* Axiom: READ operations preserve total system information *)
-Axiom read_information_conservation : 
+(* READ operations preserve total system information — trivially *)
+Lemma read_information_conservation :
   forall (universe : UniverseInformation),
   (* Reading doesn't change the universe's total entropy *)
   total_entropy universe = total_entropy universe.
+Proof. intro. reflexivity. Qed.
 
-(* Axiom: WRITE operations consume budget and generate heat *)
+(* Axiom: WRITE operations consume budget and generate Spuren *)
 Axiom write_consumes_budget : 
-  forall {A B : Type} (write_inst : WriteOperation A B) (input : A) (b : Budget) (output : B) (b' : Budget) (h : Heat),
+  forall {A B : Type} (write_inst : WriteOperation A B) (input : A) (b : Budget) (output : B) (b' : Budget) (h : Spuren),
   write_op input b = (output, b', h) -> 
-  (* Budget was consumed: heat represents the consumed portion *)
+  (* Budget was consumed: Spuren represents the consumed portion *)
   h <> fz -> b <> b'.
 
 (* Axiom: WRITE operations change the universe's information content *)
 Axiom write_information_thermodynamics :
-  forall {A B : Type} (write_inst : WriteOperation A B) (input : A) (b : Budget) (output : B) (b' : Budget) (h : Heat),
+  forall {A B : Type} (write_inst : WriteOperation A B) (input : A) (b : Budget) (output : B) (b' : Budget) (h : Spuren),
   write_op input b = (output, b', h) ->
   (* Either entropy increased OR energy was consumed *)
   h <> fz.
@@ -205,11 +206,12 @@ Definition information_boundary_rule (op_changes_distinguishability : bool) : Op
 (******************************************************************************)
 
 (* The infinite regress stops because information tracking is read access *)
-Axiom infinite_regress_termination :
-  forall (computation_history : list Heat),
+Lemma infinite_regress_termination :
+  forall (computation_history : list Spuren),
   (* Reading computational history doesn't generate new computational history *)
   (* This is the key insight that stops infinite regress *)
   True.
+Proof. intro. exact I. Qed.
 
 (******************************************************************************)
 (* EXPORTS                                                                    *)

@@ -55,7 +55,7 @@ Proof. unfold valid_prob. simpl. apply leF_refl. Qed.
 Record LearningCell := mkCell {
   cell_threshold : FinProb;
   cell_budget : Budget;
-  cell_heat : Heat
+  cell_spur : Spuren
 }.
 
 (******************************************************************************)
@@ -66,7 +66,7 @@ Definition activate (cell : LearningCell) (input : FinProb)
   : (Bool3 * LearningCell) :=
   match prob_le_b3 (cell_threshold cell) input (cell_budget cell) with
   | (result, b', h) =>
-      (result, mkCell (cell_threshold cell) b' (add_heat (cell_heat cell) h))
+      (result, mkCell (cell_threshold cell) b' (add_spur (cell_spur cell) h))
   end.
 
 (******************************************************************************)
@@ -88,7 +88,7 @@ Definition erode_threshold (cell : LearningCell) : LearningCell :=
       | fz => cell
       | fs fz => cell                    (* BOUNDARY: 1/d *)
       | fs (fs n') =>
-          mkCell (fs n', den) b' (add_heat (cell_heat cell) (fs fz))
+          mkCell (fs n', den) b' (add_spur (cell_spur cell) (fs fz))
       end
   end.
 
@@ -110,11 +110,11 @@ Definition constrict_threshold (cell : LearningCell) : LearningCell :=
       let (num, den) := cell_threshold cell in
       match fin_eq_b3 (fs num) den b' with
       | (BTrue, b'', h) =>
-          mkCell (num, den) b'' (add_heat (cell_heat cell) (fs h))
+          mkCell (num, den) b'' (add_spur (cell_spur cell) (fs h))
       | (BFalse, b'', h) =>
-          mkCell (fs num, den) b'' (add_heat (cell_heat cell) (fs h))
+          mkCell (fs num, den) b'' (add_spur (cell_spur cell) (fs h))
       | (BUnknown, b'', h) =>
-          mkCell (num, den) b'' (add_heat (cell_heat cell) (fs h))
+          mkCell (num, den) b'' (add_spur (cell_spur cell) (fs h))
       end
   end.
 
@@ -130,16 +130,16 @@ Definition leFinProb_num (p1 p2 : FinProb) : Prop :=
 (******************************************************************************)
 
 Lemma mult_fin_heat_no_budget : forall n m,
-  mult_fin_heat n m fz = (fz, fz, fz).
+  mult_fin_spur n m fz = (fz, fz, fz).
 Proof.
   intros n m. destruct m as [|m']; simpl; reflexivity.
 Qed.
 
-Lemma add_heat_geq : forall h1 h2, leF h1 (add_heat h1 h2).
+Lemma add_spur_geq : forall h1 h2, leF h1 (add_spur h1 h2).
 Proof.
   intros h1 h2. induction h2 as [|h2' IH].
   - simpl. apply leF_refl.
-  - simpl. apply leF_trans with (y := add_heat h1 h2').
+  - simpl. apply leF_trans with (y := add_spur h1 h2').
     + exact IH.
     + apply leF_step.
 Qed.
@@ -319,11 +319,11 @@ Proof.
 Qed.
 
 (******************************************************************************)
-(* THEOREM 8: HEAT MONOTONICITY (second law)                                 *)
+(* THEOREM 8: SPUR MONOTONICITY (second law)                                 *)
 (******************************************************************************)
 
 Theorem erode_heat_increases : forall num den b h,
-  leF h (cell_heat (erode_threshold (mkCell (num, den) b h))).
+  leF h (cell_spur (erode_threshold (mkCell (num, den) b h))).
 Proof.
   intros num den b h. unfold erode_threshold. simpl.
   destruct b as [|b'].
@@ -335,15 +335,15 @@ Proof.
 Qed.
 
 Theorem constrict_heat_increases : forall num den b h,
-  leF h (cell_heat (constrict_threshold (mkCell (num, den) b h))).
+  leF h (cell_spur (constrict_threshold (mkCell (num, den) b h))).
 Proof.
   intros num den b h. unfold constrict_threshold. simpl.
   destruct b as [|b'].
   - apply leF_refl.
   - destruct (fin_eq_b3 (fs num) den b') as [[r b''] hh].
     destruct r; simpl;
-    (apply leF_trans with (y := add_heat h hh);
-    [ apply add_heat_geq | apply leF_step ]).
+    (apply leF_trans with (y := add_spur h hh);
+    [ apply add_spur_geq | apply leF_step ]).
 Qed.
 
 (******************************************************************************)

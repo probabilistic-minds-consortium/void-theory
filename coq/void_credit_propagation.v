@@ -26,11 +26,11 @@ Import Void_Temporal_Memory.
 (*                                                                            *)
 (* When a trace at location A predicted activation at location B:            *)
 (* - If B actually activated strongly: A gets budget refund                  *)
-(* - If B stayed weak: A's maintenance cost stays dissipated as heat         *)
+(* - If B stayed weak: A's maintenance cost stays dissipated as Spuren         *)
 (*                                                                            *)
 (* Refund coefficient r ∈ (0,1) measures prediction quality                  *)
 (* r=1 → perfect prediction (full refund)                                    *)
-(* r=0 → complete miss (no refund, pure heat)                                *)
+(* r=0 → complete miss (no refund, pure Spuren)                                *)
 (******************************************************************************)
 
 Definition operation_cost : Fin := fs fz.
@@ -50,7 +50,7 @@ Record CreditLink := {
 Record LayerState := {
   layer_traces : list MemoryTrace;
   layer_budget : Budget;
-  layer_heat : Heat;
+  layer_spur : Spuren;
   layer_id : Fin
 }.
 
@@ -141,12 +141,12 @@ Definition process_credit_link (link : CreditLink)
                               let new_source := {| 
                                 layer_traces := layer_traces source_layer;
                                 layer_budget := b_src_new;
-                                layer_heat := layer_heat source_layer;
+                                layer_spur := layer_spur source_layer;
                                 layer_id := layer_id source_layer |} in
                               let new_target := {|
                                 layer_traces := layer_traces target_layer;
                                 layer_budget := b_tgt_new;
-                                layer_heat := add_heat (layer_heat target_layer) 
+                                layer_spur := add_spur (layer_spur target_layer) 
                                                       operation_cost;
                                 layer_id := layer_id target_layer |} in
                               (new_source, new_target, refund_amount)
@@ -207,7 +207,7 @@ Definition credit_refresh (trace : MemoryTrace) (refund : Fin)
           ({| trace_pattern := trace_pattern trace;
               trace_strength := boosted;
               trace_age := fz;  (* Reset age - freshly validated *)
-              trace_heat := trace_heat trace;
+              trace_spur := trace_spur trace;
               last_refreshed := current_tick |}, b1)
       | (false, b1) =>
           (* Not enough refund - no boost *)
@@ -237,7 +237,7 @@ Definition apply_credit_refunds (layer : LayerState)
       (layer_traces layer)
   in {| layer_traces := refreshed_traces;
         layer_budget := layer_budget layer;
-        layer_heat := layer_heat layer;
+        layer_spur := layer_spur layer;
         layer_id := layer_id layer |}.
 
 (******************************************************************************)
@@ -303,7 +303,7 @@ Record LearningState := {
   credit_links : list (list CreditLink);
   learning_tick : Fin;
   total_budget : Budget;
-  total_heat : Heat
+  total_spur : Spuren
 }.
 
 (* Single learning step: forward pass then credit propagation *)
@@ -318,11 +318,11 @@ Definition learning_step (state : LearningState) : LearningState :=
             traces := layer_traces layer;
             current_tick := learning_tick state;
             memory_budget := layer_budget layer;
-            accumulated_heat := layer_heat layer |} in
+            accumulated_spur := layer_spur layer |} in
           let new_mem := tick_forward mem_state in
           {| layer_traces := traces new_mem;
              layer_budget := memory_budget new_mem;
-             layer_heat := accumulated_heat new_mem;
+             layer_spur := accumulated_spur new_mem;
              layer_id := layer_id layer |})
         (network_stack state)
       in
@@ -336,7 +336,7 @@ Definition learning_step (state : LearningState) : LearningState :=
              credit_links := credit_links state;
              learning_tick := new_tick;
              total_budget := b_new;
-             total_heat := add_heat (total_heat state) operation_cost |}
+             total_spur := add_spur (total_spur state) operation_cost |}
       end
   end.
 
@@ -408,13 +408,13 @@ End Void_Credit_Propagation.
 (*                                                                            *)
 (* LEARNING = SELECTIVE BUDGET REFUND                                         *)
 (* Traces that correctly predicted downstream activation get budget back.    *)
-(* Failed predictions dissipate as irretrievable heat.                        *)
+(* Failed predictions dissipate as irretrievable Spuren.                        *)
 (*                                                                            *)
 (* KEY PROPERTIES:                                                            *)
 (*                                                                            *)
 (* 1. CONSERVATION PRESERVED                                                  *)
 (*    Refunds come from target layer budget, not created from nothing.       *)
-(*    Total heat across system always increases.                              *)
+(*    Total Spuren across system always increases.                              *)
 (*                                                                            *)
 (* 2. CAUSAL FINITE CHAINS                                                    *)
 (*    No backpropagation through infinite computation graphs.                 *)

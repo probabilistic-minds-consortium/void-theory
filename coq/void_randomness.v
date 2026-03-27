@@ -113,7 +113,7 @@ Definition apply_correlation_bias (bit : bool) (history : list bool)
 
 (* Main Bernoulli draw - costs one tick *)
 Definition bernoulli_b3 (theta : FinProb) (pool : EntropyPool) (b : Budget)
-  : (Bool3 * EntropyPool * Budget * Heat) :=
+  : (Bool3 * EntropyPool * Budget * Spuren) :=
   match entropy_units pool, b with
   | fz, _ => (BUnknown, pool, b, fz)
   | _, fz => (BUnknown, pool, fz, fz)
@@ -147,7 +147,7 @@ Definition bernoulli_b3 (theta : FinProb) (pool : EntropyPool) (b : Budget)
 
 (* Reseed with fixed cost and benefit - one tick *)
 Definition reseed (pool : EntropyPool) (b : Budget)
-  : (EntropyPool * Budget * Heat) :=
+  : (EntropyPool * Budget * Spuren) :=
   match b with
   | fz => (pool, fz, fz)
   | fs b' =>
@@ -168,7 +168,7 @@ Definition reseed (pool : EntropyPool) (b : Budget)
 
 (* Sample from uniform distribution - costs one tick *)
 Definition uniform_b3 (n : Fin) (pool : EntropyPool) (b : Budget)
-  : (Fin * EntropyPool * Budget * Heat) :=
+  : (Fin * EntropyPool * Budget * Spuren) :=
   match n, b with
   | fz, _ => (fz, pool, b, fz)
   | _, fz => (fz, pool, fz, fz)

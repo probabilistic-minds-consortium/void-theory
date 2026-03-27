@@ -43,10 +43,10 @@ Record CellIdentity := mkIdentity {
 (*                                                                          *)
 (* amplitude: reputation (how much the cell weighs in voting)               *)
 (* res_budget: remaining resources                                          *)
-(* res_heat: accumulated entropy                                            *)
+(* res_spur: accumulated entropy                                            *)
 (*                                                                          *)
 (* These change every cycle through:                                        *)
-(*   - activation (spends budget, generates heat)                           *)
+(*   - activation (spends budget, generates Spuren)                           *)
 (*   - resonance cascade (amplitude ↑↓)                                     *)
 (*   - credit propagation (budget refund for correct cells)                 *)
 (*   - universal damping (amplitude decays)                                 *)
@@ -55,7 +55,7 @@ Record CellIdentity := mkIdentity {
 Record CellState := mkState {
   amplitude  : FinProb;
   res_budget : Budget;
-  res_heat   : Heat
+  res_spur   : Spuren
 }.
 
 (******************************************************************************)
@@ -81,7 +81,7 @@ Record ResonantCell := mkResCell {
 (******************************************************************************)
 
 Definition classify_signal (signal : FinProb) (wf wa : FinProb) (b : Budget)
-  : (FinProb * FinProb * Budget * Heat) :=
+  : (FinProb * FinProb * Budget * Spuren) :=
   match prob_le_b3 half signal b with
   | (BTrue, b', h) =>
       (* signal >= 1/2 → evidence FOR: accumulate w_for *)
@@ -105,14 +105,14 @@ Definition classify_signal (signal : FinProb) (wf wa : FinProb) (b : Budget)
 (* Accumulate evidence from one signal-weight pair *)
 Definition accumulate_one (signal : FinProb) (wf wa : FinProb)
   (acc_for acc_against : FinProb) (b : Budget)
-  : (FinProb * FinProb * Budget * Heat) :=
+  : (FinProb * FinProb * Budget * Spuren) :=
   match classify_signal signal wf wa b with
   | (contribution_for, contribution_against, b1, h1) =>
-      match add_prob_heat acc_for contribution_for b1 with
+      match add_prob_spur acc_for contribution_for b1 with
       | (new_for, b2, h2) =>
-          match add_prob_heat acc_against contribution_against b2 with
+          match add_prob_spur acc_against contribution_against b2 with
           | (new_against, b3, h3) =>
-              (new_for, new_against, b3, add_heat h1 (add_heat h2 h3))
+              (new_for, new_against, b3, add_spur h1 (add_spur h2 h3))
           end
       end
   end.
@@ -120,7 +120,7 @@ Definition accumulate_one (signal : FinProb) (wf wa : FinProb)
 (* Process all signals against weight lists *)
 Fixpoint accumulate_all (signals wfs was : list FinProb)
   (acc_for acc_against : FinProb) (b : Budget)
-  : (FinProb * FinProb * Budget * Heat) :=
+  : (FinProb * FinProb * Budget * Spuren) :=
   match signals, wfs, was with
   | [], _, _ => (acc_for, acc_against, b, fz)
   | _, [], _ => (acc_for, acc_against, b, fz)
@@ -133,18 +133,18 @@ Fixpoint accumulate_all (signals wfs was : list FinProb)
           | (af', aa', b', h1) =>
               match accumulate_all ss wfs' was' af' aa' b' with
               | (af'', aa'', b'', h2) =>
-                  (af'', aa'', b'', add_heat h1 h2)
+                  (af'', aa'', b'', add_spur h1 h2)
               end
           end
       end
   end.
 
 (* The activate function. Takes IDENTITY + signals + budget.
-   Returns FinProb output + remaining budget + heat.
+   Returns FinProb output + remaining budget + Spuren.
 
    NOTE: CellState is NOT an argument. This is the whole point. *)
 Definition activate (id : CellIdentity) (signals : list FinProb) (b : Budget)
-  : (FinProb * Budget * Heat) :=
+  : (FinProb * Budget * Spuren) :=
   let zero_prob := (fz, fs fz) in
   match accumulate_all signals (w_for id) (w_against id)
                         zero_prob zero_prob b with
@@ -153,13 +153,13 @@ Definition activate (id : CellIdentity) (signals : list FinProb) (b : Budget)
       match prob_le_b3 acc_against acc_for b' with
       | (BTrue, b'', h2) =>
           (* acc_for >= acc_against → positive output *)
-          (acc_for, b'', add_heat h1 h2)
+          (acc_for, b'', add_spur h1 h2)
       | (BFalse, b'', h2) =>
           (* acc_against > acc_for → negative output *)
-          (acc_against, b'', add_heat h1 h2)
+          (acc_against, b'', add_spur h1 h2)
       | (BUnknown, b'', h2) =>
           (* can't determine → return half (neutral) *)
-          (half, b'', add_heat h1 h2)
+          (half, b'', add_spur h1 h2)
       end
   end.
 
@@ -170,7 +170,7 @@ Definition activate (id : CellIdentity) (signals : list FinProb) (b : Budget)
 (******************************************************************************)
 
 Definition is_resonant (id : CellIdentity) (input_freq : FinProb) (b : Budget)
-  : (Bool3 * Budget * Heat) :=
+  : (Bool3 * Budget * Spuren) :=
   prob_eq_b3 (frequency id) input_freq b.
 
 (******************************************************************************)
@@ -186,13 +186,13 @@ Definition boost_amplitude (st : CellState) : CellState :=
       match fin_eq_b3 (fs num) den b' with
       | (BTrue, b'', h) =>
           (* fs num = den → at maximum, can't boost *)
-          mkState (num, den) b'' (add_heat (res_heat st) (fs h))
+          mkState (num, den) b'' (add_spur (res_spur st) (fs h))
       | (BFalse, b'', h) =>
           (* safe to increment *)
-          mkState (fs num, den) b'' (add_heat (res_heat st) (fs h))
+          mkState (fs num, den) b'' (add_spur (res_spur st) (fs h))
       | (BUnknown, b'', h) =>
           (* can't verify → conservative, don't boost *)
-          mkState (num, den) b'' (add_heat (res_heat st) (fs h))
+          mkState (num, den) b'' (add_spur (res_spur st) (fs h))
       end
   end.
 
@@ -206,7 +206,7 @@ Definition decay_amplitude (st : CellState) : CellState :=
       | fz => st  (* already at zero *)
       | fs fz => st  (* BOUNDARY: 1/d is minimum, don't go to 0/d *)
       | fs (fs n') =>
-          mkState (fs n', den) b' (add_heat (res_heat st) (fs fz))
+          mkState (fs n', den) b' (add_spur (res_spur st) (fs fz))
       end
   end.
 
@@ -221,7 +221,7 @@ Definition decay_amplitude (st : CellState) : CellState :=
 (******************************************************************************)
 
 Definition refund_budget (st : CellState) (amount : Fin) : CellState :=
-  mkState (amplitude st) (add_heat (res_budget st) amount) (res_heat st).
+  mkState (amplitude st) (add_spur (res_budget st) amount) (res_spur st).
 
 Definition credit_propagation (st : CellState) (correct : Bool3)
   (refund_amount : Fin) : CellState :=
@@ -313,7 +313,7 @@ Proof. intros. reflexivity. Qed.
 (* A "pattern" in VOID is a maintained distinction that:                    *)
 (*   (a) COSTS resources to maintain (every boost spends budget)            *)
 (*   (b) DECAYS without sustenance (damping lowers amplitude)               *)
-(*   (c) TRACKS heat (every modification increases entropy)                 *)
+(*   (c) TRACKS Spuren (every modification increases entropy)                 *)
 (*                                                                          *)
 (* We prove each property separately.                                       *)
 (******************************************************************************)
@@ -322,7 +322,7 @@ Proof. intros. reflexivity. Qed.
 Theorem boost_budget_nonincreasing :
   forall st, leF (res_budget (boost_amplitude st)) (res_budget st).
 Proof.
-  intros [[num den] [|b'] heat]; unfold boost_amplitude; cbn -[fin_eq_b3].
+  intros [[num den] [|b'] sp]; unfold boost_amplitude; cbn -[fin_eq_b3].
   - apply leF_refl.
   - destruct (fin_eq_b3 (fs num) den b') as [[r b''] hh] eqn:Echk.
     assert (Hle : leF b'' b').
@@ -344,7 +344,7 @@ Theorem decay_amplitude_nonincreasing :
   forall st,
   leF (fst (amplitude (decay_amplitude st))) (fst (amplitude st)).
 Proof.
-  intros [[num den] bud heat]. simpl. unfold decay_amplitude. simpl.
+  intros [[num den] bud sp]. simpl. unfold decay_amplitude. simpl.
   destruct bud as [|b'].
   - simpl. apply leF_refl.
   - destruct num as [|[|n']]; simpl.
@@ -359,22 +359,22 @@ Theorem decay_at_boundary_stable :
   amplitude (decay_amplitude (mkState (fs fz, den) (fs b') h)) = (fs fz, den).
 Proof. intros. simpl. reflexivity. Qed.
 
-(* 2c: Every amplitude operation increases heat *)
+(* 2c: Every amplitude operation increases Spuren *)
 Theorem boost_heat_increases :
-  forall st, leF (res_heat st) (res_heat (boost_amplitude st)).
+  forall st, leF (res_spur st) (res_spur (boost_amplitude st)).
 Proof.
-  intros [[num den] [|b'] heat]; unfold boost_amplitude; cbn -[fin_eq_b3].
+  intros [[num den] [|b'] sp]; unfold boost_amplitude; cbn -[fin_eq_b3].
   - apply leF_refl.
   - destruct (fin_eq_b3 (fs num) den b') as [[r b''] hh].
     destruct r; cbn -[fin_eq_b3];
-    (apply leF_trans with (y := add_heat heat hh);
-     [ apply add_heat_geq | apply leF_step ]).
+    (apply leF_trans with (y := add_spur sp hh);
+     [ apply add_spur_geq | apply leF_step ]).
 Qed.
 
 Theorem decay_heat_increases :
-  forall st, leF (res_heat st) (res_heat (decay_amplitude st)).
+  forall st, leF (res_spur st) (res_spur (decay_amplitude st)).
 Proof.
-  intros [[num den] bud heat]. simpl. unfold decay_amplitude. simpl.
+  intros [[num den] bud sp]. simpl. unfold decay_amplitude. simpl.
   destruct bud as [|b'].
   - simpl. apply leF_refl.
   - destruct num as [|[|n']]; simpl.
@@ -387,14 +387,14 @@ Qed.
 Theorem boost_frozen_when_exhausted :
   forall st, res_budget st = fz -> boost_amplitude st = st.
 Proof.
-  intros [amp bud heat] Hb. simpl in Hb. subst.
+  intros [amp bud sp] Hb. simpl in Hb. subst.
   unfold boost_amplitude. cbn -[fin_eq_b3]. reflexivity.
 Qed.
 
 Theorem decay_frozen_when_exhausted :
   forall st, res_budget st = fz -> decay_amplitude st = st.
 Proof.
-  intros [amp bud heat] Hb. simpl in Hb. subst.
+  intros [amp bud sp] Hb. simpl in Hb. subst.
   unfold decay_amplitude. simpl. reflexivity.
 Qed.
 
@@ -403,7 +403,7 @@ Theorem decay_preserves_denominator :
   forall st,
   snd (amplitude (decay_amplitude st)) = snd (amplitude st).
 Proof.
-  intros [[num den] bud heat]. unfold decay_amplitude. simpl.
+  intros [[num den] bud sp]. unfold decay_amplitude. simpl.
   destruct bud as [|b'].
   - reflexivity.
   - destruct num as [|[|n']]; reflexivity.
@@ -414,7 +414,7 @@ Theorem boost_preserves_denominator :
   forall st,
   snd (amplitude (boost_amplitude st)) = snd (amplitude st).
 Proof.
-  intros [[num den] [|b'] heat]; unfold boost_amplitude; cbn -[fin_eq_b3].
+  intros [[num den] [|b'] sp]; unfold boost_amplitude; cbn -[fin_eq_b3].
   - reflexivity.
   - destruct (fin_eq_b3 (fs num) den b') as [[r b''] hh].
     destruct r; reflexivity.
@@ -518,7 +518,7 @@ Theorem dead_cell_stays_dead_boost :
   forall st, res_budget st = fz ->
   res_budget (boost_amplitude st) = fz.
 Proof.
-  intros [amp bud heat] H. simpl in H. subst.
+  intros [amp bud sp] H. simpl in H. subst.
   unfold boost_amplitude. cbn -[fin_eq_b3]. reflexivity.
 Qed.
 
@@ -526,7 +526,7 @@ Theorem dead_cell_stays_dead_decay :
   forall st, res_budget st = fz ->
   res_budget (decay_amplitude st) = fz.
 Proof.
-  intros [amp bud heat] H. simpl in H. subst.
+  intros [amp bud sp] H. simpl in H. subst.
   unfold decay_amplitude. simpl. destruct amp as [num den].
   destruct num; reflexivity.
 Qed.
@@ -534,7 +534,7 @@ Qed.
 (* Except credit propagation — that's the ONLY way budget increases *)
 Theorem credit_is_the_only_life :
   forall st refund,
-  res_budget (refund_budget st refund) = add_heat (res_budget st) refund.
+  res_budget (refund_budget st refund) = add_spur (res_budget st) refund.
 Proof. intros. simpl. reflexivity. Qed.
 
 (******************************************************************************)
@@ -604,7 +604,7 @@ Qed.
 (*                                                                          *)
 (* The resonant ensemble learns through SELECTION, not modification.        *)
 (*                                                                          *)
-(* What changes: amplitude (reputation), budget (resources), heat (entropy) *)
+(* What changes: amplitude (reputation), budget (resources), Spuren (entropy) *)
 (* What is frozen: w_for, w_against, frequency (epistemology)               *)
 (*                                                                          *)
 (* Key theorems (ALL proven, ZERO Admitted):                                *)

@@ -41,8 +41,8 @@ Fixpoint filter {A : Type} (f : A -> bool) (l : list A) : list A :=
   | h :: t => if f h then h :: filter f t else filter f t
   end.
 
-(* Check if heat is less than threshold *)
-Definition le_heat (h1 h2 : Heat) : bool :=
+(* Check if Spuren is less than threshold *)
+Definition le_spur (h1 h2 : Spuren) : bool :=
   match le_fin_b h1 h2 initial_budget with
   | (b, _) => b
   end.
@@ -85,14 +85,14 @@ Record ProcessGhost := {
   echo_sequence : list Pattern;     (* What it regenerates *)
   fidelity : FinProb;              (* Matching tolerance *)
   remaining_echoes : Fin;          (* Finite replay count *)
-  echo_heat : Heat                 (* Heat from past regenerations *)
+  echo_spur : Spuren                 (* Spuren from past regenerations *)
 }.
 
-(* Helper: Add degradation to patterns based on heat *)
-Definition degrade_patterns_b (patterns : list Pattern) (h : Heat) (b : Budget)
+(* Helper: Add degradation to patterns based on Spuren *)
+Definition degrade_patterns_b (patterns : list Pattern) (h : Spuren) (b : Budget)
   : (list Pattern * Budget) :=
   match h with
-  | fz => (patterns, b)  (* No heat, no degradation *)
+  | fz => (patterns, b)  (* No Spuren, no degradation *)
   | _ =>
       fold_left (fun acc p =>
         match acc with
@@ -111,7 +111,7 @@ Definition degrade_patterns_b (patterns : list Pattern) (h : Heat) (b : Budget)
 
 (* The fundamental operation: approximate regeneration *)
 Definition echo_process_b (pg : ProcessGhost) (input : Pattern) (b : Budget)
-  : (option (list Pattern) * ProcessGhost * Budget * Heat) :=
+  : (option (list Pattern) * ProcessGhost * Budget * Spuren) :=
   match remaining_echoes pg with
   | fz => (None, pg, b, fs fz)  (* Ghost exhausted *)
   | fs n =>
@@ -121,15 +121,15 @@ Definition echo_process_b (pg : ProcessGhost) (input : Pattern) (b : Budget)
           match probs_similar_b (strength input) (strength (trigger pg)) 
                                 (fidelity pg) b1 with
           | (true, b2) =>
-              (* Regenerate with degradation proportional to accumulated heat *)
-              match degrade_patterns_b (echo_sequence pg) (echo_heat pg) b2 with
+              (* Regenerate with degradation proportional to accumulated Spuren *)
+              match degrade_patterns_b (echo_sequence pg) (echo_spur pg) b2 with
               | (degraded_echo, b3) =>
                   (Some degraded_echo,
                    {| trigger := trigger pg;
                       echo_sequence := echo_sequence pg;
                       fidelity := decay_prob (fidelity pg);  (* Degrades *)
                       remaining_echoes := n;
-                      echo_heat := add_heat (echo_heat pg) (fs (fs fz)) |},
+                      echo_spur := add_spur (echo_spur pg) (fs (fs fz)) |},
                    b3,
                    fs (fs fz))
               end
@@ -164,7 +164,7 @@ Fixpoint update_ghost (ghosts : list ProcessGhost)
 Record ProcessMemoryBank := {
   ghosts : list ProcessGhost;
   bank_capacity : Fin;        (* Maximum ghosts *)
-  total_heat : Heat;          (* Bank temperature *)
+  total_spur : Spuren;          (* Bank temperature *)
   bank_budget : Budget
 }.
 
@@ -176,7 +176,7 @@ Definition add_ghost (bank : ProcessMemoryBank) (g : ProcessGhost)
   | (true, b') =>
       {| ghosts := g :: ghosts bank;
          bank_capacity := bank_capacity bank;
-         total_heat := total_heat bank;
+         total_spur := total_spur bank;
          bank_budget := b' |}
   | (false, b') => bank  (* At capacity *)
   end.
@@ -193,7 +193,7 @@ Definition learn_ghost_b (patterns : list Pattern) (b : Budget)
                    echo_sequence := echo;
                    fidelity := (fs (fs fz), fs (fs (fs fz)));  (* 2/3 *)
                    remaining_echoes := fs (fs (fs (fs (fs fz))));  (* 5 uses *)
-                   echo_heat := fz |},
+                   echo_spur := fz |},
            b1)
       | (false, b1) => (None, b1)  (* Sequence too long *)
       end
@@ -213,13 +213,13 @@ Definition bank_recall_b (bank : ProcessMemoryBank) (input : Pattern)
                 (patterns ++ echoes,
                  {| ghosts := update_ghost (ghosts current_bank) ghost ghost';
                     bank_capacity := bank_capacity current_bank;
-                    total_heat := add_heat (total_heat current_bank) h;
+                    total_spur := add_spur (total_spur current_bank) h;
                     bank_budget := b' |})
             | (None, _, b', h) =>
                 (patterns,
                  {| ghosts := ghosts current_bank;
                     bank_capacity := bank_capacity current_bank;
-                    total_heat := add_heat (total_heat current_bank) h;
+                    total_spur := add_spur (total_spur current_bank) h;
                     bank_budget := b' |})
             end
         end
@@ -234,12 +234,12 @@ Definition evaporate_ghosts_b (bank : ProcessMemoryBank) : ProcessMemoryBank :=
   let survivors := filter (fun g => 
     match remaining_echoes g with
     | fz => false  (* Dead ghost *)
-    | _ => le_heat (echo_heat g) (total_heat bank)  (* Cool enough to survive *)
+    | _ => le_spur (echo_spur g) (total_spur bank)  (* Cool enough to survive *)
     end
   ) (ghosts bank) in
   {| ghosts := survivors;
      bank_capacity := bank_capacity bank;
-     total_heat := match total_heat bank with
+     total_spur := match total_spur bank with
                    | fz => fz
                    | fs h => h  (* Bank cools *)
                    end;

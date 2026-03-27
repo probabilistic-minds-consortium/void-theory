@@ -140,13 +140,24 @@ Axiom distinguishability_avoids_boundaries :
   fst p <> snd p.
 
 (* When differences are below resolution, distinguishability is minimal *)
-Axiom subthreshold_minimal :
+(* REFORMULATED: uses the actual internal budget, not existential *)
+Lemma subthreshold_minimal :
   forall (O : ObsState) (e1 e2 : EnvState) (b : Budget),
-  (exists b', b' <> fz /\
-   fst (exceeds_threshold_with_budget 
-        (fst (prob_diff_with_budget (mu O e1) (mu O e2) b))
-        (resolution O) b') = false) ->
+  fst (exceeds_threshold_with_budget
+       (fst (prob_diff_with_budget (mu O e1) (mu O e2) b))
+       (resolution O)
+       (snd (prob_diff_with_budget (mu O e1) (mu O e2) b))) = false ->
   fst (distinguishability_with_budget O e1 e2 b) = (fs fz, fs (fs fz)).
+Proof.
+  intros O e1 e2 b Hexc.
+  unfold distinguishability_with_budget.
+  set (pd := prob_diff_with_budget (mu O e1) (mu O e2) b) in *.
+  destruct pd as [diff b1].
+  simpl in Hexc.
+  destruct (exceeds_threshold_with_budget diff (resolution O) b1) as [exceeds b2].
+  simpl in Hexc.
+  rewrite Hexc. simpl. reflexivity.
+Qed.
 
 (******************************************************************************)
 (* OBSERVER WITH BUDGET                                                       *)

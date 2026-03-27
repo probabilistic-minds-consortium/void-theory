@@ -140,7 +140,7 @@ Definition dist_prob_b (p1 p2 : FinProb) (b : Budget) : (FinProb * Budget) :=
 
 (* Check frequency match - WRITE operation (computes new information) *)
 Definition write_frequency_match (p_freq loc_freq : FinProb) (threshold : Fin) (b : Budget)
-  : (bool * Budget * Heat) :=
+  : (bool * Budget * Spuren) :=
   match b with
   | fz => (false, fz, fz)
   | fs b' =>
@@ -159,7 +159,7 @@ Instance frequency_match_write : WriteOperation (FinProb * FinProb * Fin) bool :
 
 (* Find resonant location - WRITE operation *)
 Fixpoint write_find_resonant (rp : ResonantPattern) (locs : list ResonantLocation) 
-                             (b : Budget) : (option ResonantLocation * Budget * Heat) :=
+                             (b : Budget) : (option ResonantLocation * Budget * Spuren) :=
   match locs, b with
   | [], _ => (None, b, fz)
   | _, fz => (None, fz, fz)
@@ -169,7 +169,7 @@ Fixpoint write_find_resonant (rp : ResonantPattern) (locs : list ResonantLocatio
       | (true, b'', h) => (Some loc, b'', h)
       | (false, b'', h) =>
           match write_find_resonant rp rest b'' with
-          | (result, b''', h') => (result, b''', add_heat h h')
+          | (result, b''', h') => (result, b''', add_spur h h')
           end
       end
   end.
@@ -181,7 +181,7 @@ Instance find_resonant_write : WriteOperation (ResonantPattern * list ResonantLo
 
 (* Jump to resonant location - WRITE operation *)
 Definition write_resonance_jump (rp : ResonantPattern) (target : ResonantLocation) 
-                                (b : Budget) : (ResonantPattern * Budget * Heat) :=
+                                (b : Budget) : (ResonantPattern * Budget * Spuren) :=
   match b with
   | fz => (rp, fz, fz)
   | fs b' =>
@@ -199,7 +199,7 @@ Instance resonance_jump_write : WriteOperation (ResonantPattern * ResonantLocati
 
 (* Amplify at resonant location - WRITE operation *)
 Definition write_amplify (rp : ResonantPattern) (loc : ResonantLocation) (b : Budget)
-  : (ResonantPattern * ResonantLocation * Budget * Heat) :=
+  : (ResonantPattern * ResonantLocation * Budget * Spuren) :=
   match b with
   | fz => (rp, loc, fz, fz)
   | fs b' =>
@@ -229,7 +229,7 @@ Instance amplify_write : WriteOperation (ResonantPattern * ResonantLocation)
 
 (* Apply damping - WRITE operation *)
 Definition write_apply_damping (loc : ResonantLocation) (b : Budget)
-  : (ResonantLocation * Budget * Heat) :=
+  : (ResonantLocation * Budget * Spuren) :=
   match b with
   | fz => (loc, fz, fz)
   | fs b' =>
@@ -249,7 +249,7 @@ Instance damping_write : WriteOperation ResonantLocation ResonantLocation := {
 
 (* Cascade step - WRITE operation *)
 Definition write_cascade_step (net : NetworkState) (b : Budget) 
-  : (NetworkState * Budget * Heat) :=
+  : (NetworkState * Budget * Spuren) :=
   match b with
   | fz => (net, fz, fz)
   | fs b' =>

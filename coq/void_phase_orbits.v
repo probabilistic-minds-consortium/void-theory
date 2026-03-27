@@ -139,7 +139,7 @@ Instance hop_cost_read : ReadOperation (PhaseOrbit * PhaseOrbit) Fin := {
 
 (* Advance phase - WRITE operation *)
 Definition write_advance_phase (orbit : PhaseOrbit) (b : Budget) 
-  : (PhaseOrbit * Budget * Heat) :=
+  : (PhaseOrbit * Budget * Spuren) :=
   match b with
   | fz => (orbit, fz, fz)
   | fs b' =>
@@ -162,7 +162,7 @@ Instance advance_phase_write : WriteOperation PhaseOrbit PhaseOrbit := {
 
 (* Move pattern along orbit - WRITE operation *)
 Definition write_orbital_step (op : OrbitalPattern) (b : Budget) 
-  : (OrbitalPattern * Budget * Heat) :=
+  : (OrbitalPattern * Budget * Spuren) :=
   match b with
   | fz => (op, fz, fz)
   | fs b' =>
@@ -186,7 +186,7 @@ Instance orbital_step_write : WriteOperation OrbitalPattern OrbitalPattern := {
 
 (* Check orbit intersection - WRITE operation (computes new information) *)
 Definition write_check_intersection (o1 o2 : PhaseOrbit) (b : Budget) 
-  : (bool * Budget * Heat) :=
+  : (bool * Budget * Spuren) :=
   match b with
   | fz => (false, fz, fz)
   | fs b' =>
@@ -204,7 +204,7 @@ Instance intersection_check_write : WriteOperation (PhaseOrbit * PhaseOrbit) boo
 
 (* Hop between orbits - WRITE operation *)
 Definition write_orbit_hop (op : OrbitalPattern) (target : PhaseOrbit) (b : Budget)
-  : (OrbitalPattern * Budget * Heat) :=
+  : (OrbitalPattern * Budget * Spuren) :=
   match b with
   | fz => (op, fz, fz)
   | fs b' =>
@@ -227,7 +227,7 @@ Instance orbit_hop_write : WriteOperation (OrbitalPattern * PhaseOrbit) OrbitalP
 
 (* Check if can escape orbit - WRITE operation *)
 Definition write_escape_check (op : OrbitalPattern) (b : Budget) 
-  : (bool * Budget * Heat) :=
+  : (bool * Budget * Spuren) :=
   match b with
   | fz => (false, fz, fz)
   | fs b' =>
@@ -244,7 +244,7 @@ Instance escape_check_write : WriteOperation OrbitalPattern bool := {
 
 (* Create simple circular orbit - WRITE operation *)
 Definition write_circular_orbit (center : Fin) (radius : Fin) (b : Budget)
-  : (PhaseOrbit * Budget * Heat) :=
+  : (PhaseOrbit * Budget * Spuren) :=
   match b with
   | fz => ({| orbit_points := [];
               period := fz;
@@ -266,7 +266,7 @@ Instance circular_orbit_write : WriteOperation (Fin * Fin) PhaseOrbit := {
 }.
 
 (* Create figure-8 orbit - WRITE operation *)
-Definition write_figure_eight_orbit (b : Budget) : (PhaseOrbit * Budget * Heat) :=
+Definition write_figure_eight_orbit (b : Budget) : (PhaseOrbit * Budget * Spuren) :=
   match b with
   | fz => ({| orbit_points := [];
               period := fz;
@@ -290,7 +290,7 @@ Instance figure_eight_write : WriteOperation unit PhaseOrbit := {
 
 (* Perturb orbit with chaos - WRITE operation *)
 Definition write_perturb_orbit (orbit : PhaseOrbit) (chaos : Fin) (b : Budget)
-  : (PhaseOrbit * Budget * Heat) :=
+  : (PhaseOrbit * Budget * Spuren) :=
   match b with
   | fz => (orbit, fz, fz)
   | fs b' =>
@@ -319,7 +319,7 @@ Instance perturb_orbit_write : WriteOperation (PhaseOrbit * Fin) PhaseOrbit := {
 
 (* Evolve entire orbital system - WRITE operation *)
 Definition write_evolve_system (sys : OrbitalSystem) (b : Budget) 
-  : (OrbitalSystem * Budget * Heat) :=
+  : (OrbitalSystem * Budget * Spuren) :=
   match b with
   | fz => (sys, fz, fz)
   | fs b' =>
@@ -332,7 +332,7 @@ Definition write_evolve_system (sys : OrbitalSystem) (b : Budget)
             | _ =>
                 match write_orbital_step op b_acc with
                 | (new_op, b'', h) => 
-                    (new_op :: patterns, b'', add_heat h_acc h)
+                    (new_op :: patterns, b'', add_spur h_acc h)
                 end
             end
         end

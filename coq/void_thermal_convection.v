@@ -1,6 +1,6 @@
 (******************************************************************************)
 (* void_thermal_convection.v - BUDGET-AWARE THERMAL DYNAMICS                 *)
-(* Heat IS computational budget. Convection exhausts the system.             *)
+(* Spuren IS computational budget. Convection exhausts the system.             *)
 (* Rising costs, sinking costs, circulation depletes - thermodynamics is real *)
 (******************************************************************************)
 
@@ -92,16 +92,16 @@ Instance emergency_multiplier_read : ReadOperation Budget Fin := {
   read_op := emergency_multiplier_dynamic
 }.
 
-(* Heat threshold based on system state - READ operation *)
-Definition heat_threshold_dynamic (system_budget : Budget) : Fin :=
+(* Spuren threshold based on system state - READ operation *)
+Definition spur_threshold_dynamic (system_budget : Budget) : Fin :=
   match system_budget with
   | fz => fz                (* No budget: even cold patterns try to move *)
   | fs fz => fs fz          (* Low budget: lower threshold *)
   | _ => fs (fs fz)         (* Normal: standard threshold *)
   end.
 
-Instance heat_threshold_read : ReadOperation Budget Fin := {
-  read_op := heat_threshold_dynamic
+Instance spur_threshold_read : ReadOperation Budget Fin := {
+  read_op := spur_threshold_dynamic
 }.
 
 (******************************************************************************)
@@ -118,8 +118,8 @@ Definition andb (b1 b2 : bool) : bool :=
 (* Get pattern from ThermalPattern *)
 Definition cold (tp : ThermalPattern) : Pattern := pattern tp.
 
-(* Get heat from ThermalPattern *)
-Definition heat (tp : ThermalPattern) : Fin := heat_generated tp.
+(* Get Spuren from ThermalPattern *)
+Definition spur_val (tp : ThermalPattern) : Fin := spur_generated tp.
 
 (* Minimum with budget *)
 Definition min_fin_b (n m : Fin) (b : Budget) : (Fin * Budget) :=
@@ -162,7 +162,7 @@ Record ThermalSystem := {
   cells : list ConvectionCell;
   gravity_strength : Fin;
   system_budget : Budget;  (* Total system energy *)
-  total_heat : Fin        (* Heat = spent budget *)
+  total_spur : Fin        (* Spuren = spent budget *)
 }.
 
 (******************************************************************************)
@@ -171,7 +171,7 @@ Record ThermalSystem := {
 
 (* Check if pattern is hot enough to rise - NOW WITH DYNAMIC THRESHOLD *)
 Definition exceeds_heat_threshold_b (h : Fin) (b : Budget) : (bool * Budget) :=
-  let threshold := heat_threshold_dynamic b in
+  let threshold := spur_threshold_dynamic b in
   le_fin_b threshold h b.
 
 (* Find cooler layer above - expensive search with dynamic cost *)
@@ -245,7 +245,7 @@ Definition thermal_circulation_b (tp : ThermalPattern) (sys : ThermalSystem)
   match system_budget sys with
   | fz => (location (cold tp), fz)  (* No budget - no movement *)
   | _ =>
-      match exceeds_heat_threshold_b (heat tp) (system_budget sys) with
+      match exceeds_heat_threshold_b (spur_val tp) (system_budget sys) with
       | (hot_enough, b1) =>
           if hot_enough then
             (* Rise costs more than sinking - dynamic cost *)
@@ -279,18 +279,18 @@ Definition circulate_pattern_b (tp : ThermalPattern) (sys : ThermalSystem)
       match fin_eq_b new_loc (location (cold tp)) b1 with
       | (stayed, b2) =>
           if stayed then
-            (* No movement - keep heat but lose budget *)
-            (Build_ThermalPattern (cold tp) (heat tp) (compute_budget tp), b2)
+            (* No movement - keep Spuren but lose budget *)
+            (Build_ThermalPattern (cold tp) (spur_val tp) (compute_budget tp), b2)
           else
-            (* Movement dissipates heat AND strength *)
+            (* Movement dissipates Spuren AND strength *)
             match decay_with_budget (strength (cold tp)) b2 with
             | (new_strength, b3) =>
-                let new_heat := match heat tp with
+                let new_spur := match spur_val tp with
                                | fz => fz
                                | fs h => h
                                end in
                 let new_pattern := Build_Pattern new_loc new_strength in
-                (Build_ThermalPattern new_pattern new_heat (compute_budget tp), b3)
+                (Build_ThermalPattern new_pattern new_spur (compute_budget tp), b3)
             end
       end
   end.
@@ -303,27 +303,27 @@ Definition update_layer_temperature_b (layer : ThermalLayer) : ThermalLayer :=
       let temp_calc_cost := temperature_calc_cost_dynamic (layer_budget layer) in
       match sub_fin (layer_budget layer) temp_calc_cost (layer_budget layer) with
       | (_, b1) =>
-          (* Calculate total heat - expensive *)
-          let calc_heat := fold_left (fun acc tp =>
+          (* Calculate total Spuren - expensive *)
+          let calc_spur := fold_left (fun acc tp =>
             match acc with
             | (total, b_acc) =>
                 match b_acc with
                 | fz => (total, fz)
                 | fs b' => 
-                    match add_fin total (heat tp) b' with
+                    match add_fin total (spur_val tp) b' with
                     | (new_total, b'') => (new_total, b'')
                     end
                 end
             end
           ) (layer_patterns layer) (fz, b1) in
           
-          match calc_heat with
-          | (total_heat, b2) =>
-              match min_fin_b total_heat (fs (fs (fs fz))) b2 with
-              | (capped_heat, b3) =>
+          match calc_spur with
+          | (total_spur, b2) =>
+              match min_fin_b total_spur (fs (fs (fs fz))) b2 with
+              | (capped_spur, b3) =>
                   Build_ThermalLayer 
                     (layer_height layer)
-                    capped_heat
+                    capped_spur
                     (layer_patterns layer)
                     b3
                     (convection_strength layer)
@@ -373,7 +373,7 @@ Definition evolve_thermal_system_b (sys : ThermalSystem) : ThermalSystem :=
                                         (cells sys)
                                         (gravity_strength sys)
                                         b
-                                        (total_heat sys) in
+                                        (total_spur sys) in
                       match circulate_pattern_b tp temp_sys with
                       | (new_tp, b') => (new_tp :: patterns, b')
                       end
@@ -401,8 +401,8 @@ Definition evolve_thermal_system_b (sys : ThermalSystem) : ThermalSystem :=
           (* Update cells *)
           let new_cells := map step_convection_cell_b (cells sys) in
           
-          (* System cools - heat dissipates *)
-          let new_heat := match total_heat sys with
+          (* System cools - Spuren dissipates *)
+          let new_spur := match total_spur sys with
                           | fz => fz
                           | fs h => h
                           end in
@@ -412,7 +412,7 @@ Definition evolve_thermal_system_b (sys : ThermalSystem) : ThermalSystem :=
             new_cells
             (gravity_strength sys)
             b_final
-            new_heat
+            new_spur
       end
   end.
 
@@ -456,7 +456,7 @@ Definition emergency_cooling_b (sys : ThermalSystem) : ThermalSystem :=
           | (true, b2) =>
               match sub_fin b2 emergency_cost b2 with
               | (_, b3) =>
-                  (* Dump all heat - expensive! *)
+                  (* Dump all Spuren - expensive! *)
                   Build_ThermalSystem
                     (map (fun layer =>
                        Build_ThermalLayer
@@ -509,8 +509,8 @@ Definition evolve_thermal_system_b_ext := evolve_thermal_system_b.
 
 (* Thermal convection in void mathematics reveals thermodynamic truth:
    
-   1. HEAT IS COMPUTATION - Heat isn't separate from budget; it IS spent
-      budget. Every calculation generates heat, every movement dissipates it.
+   1. HEAT IS COMPUTATION - Spuren isn't separate from budget; it IS spent
+      budget. Every calculation generates Spuren, every movement dissipates it.
    
    2. COSTS EMERGE FROM SCARCITY - Rising costs more when resources are scarce.
       Emergency operations become prohibitively expensive as systems exhaust.
@@ -525,8 +525,8 @@ Definition evolve_thermal_system_b_ext := evolve_thermal_system_b.
    5. DEATH IS RESOURCE EXHAUSTION - Patterns freeze not because of arbitrary
       rules but because they literally cannot afford to continue operating.
    
-   This models real thermodynamics: computation generates heat, scarcity
+   This models real thermodynamics: computation generates Spuren, scarcity
    drives up operational costs, and everything tends toward the most
-   resource-efficient equilibrium until heat death. *)
+   resource-efficient equilibrium until Spuren exhaustion. *)
 
 End Void_Thermal_Convection.

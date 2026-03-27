@@ -4,7 +4,7 @@
 (*                                                                           *)
 (* void_attention_cost.v manages trace survival (who lives, who dies).       *)
 (* void_credit_propagation.v manages trace credit (who predicted well).      *)
-(* Both operate on list MemoryTrace with Budget and Heat.                    *)
+(* Both operate on list MemoryTrace with Budget and Spuren.                    *)
 (* This module connects them: maintain first, then evaluate credit.          *)
 (******************************************************************************)
 
@@ -39,13 +39,13 @@ Definition operation_cost : Fin := fs fz.
 Definition layer_to_maintenance (ls : LayerState) : MaintenanceState :=
   {| maintained_traces := layer_traces ls;
      maintenance_budget := layer_budget ls;
-     maintenance_heat := layer_heat ls;
+     maintenance_spur := layer_spur ls;
      maintenance_tick := layer_id ls |}.
 
 Definition maintenance_to_layer (ms : MaintenanceState) (id : Fin) : LayerState :=
   {| layer_traces := maintained_traces ms;
      layer_budget := maintenance_budget ms;
-     layer_heat := maintenance_heat ms;
+     layer_spur := maintenance_spur ms;
      layer_id := id |}.
 
 (******************************************************************************)
@@ -53,7 +53,7 @@ Definition maintenance_to_layer (ms : MaintenanceState) (id : Fin) : LayerState 
 (******************************************************************************)
 
 (* Run maintenance on a LayerState: decay traces, drop what you can't
-   afford, return surviving traces with updated budget and heat.
+   afford, return surviving traces with updated budget and Spuren.
    One tick per trace for counting + cost calculation. *)
 Definition maintain_layer (ls : LayerState) : LayerState :=
   let ms := layer_to_maintenance ls in
@@ -143,7 +143,7 @@ End Void_Attention_Credit_Bridge.
 (* WHY THIS BRIDGE EXISTS                                                     *)
 (*                                                                            *)
 (* void_attention_cost.v and void_credit_propagation.v both operate on       *)
-(* lists of MemoryTrace with Budget and Heat. Both import                    *)
+(* lists of MemoryTrace with Budget and Spuren. Both import                    *)
 (* void_temporal_memory.v. They never import each other.                     *)
 (*                                                                            *)
 (* Without this bridge:                                                       *)

@@ -1,3 +1,7 @@
+Require Import void_finite_minimal.
+Require Import void_probability_minimal.
+Require Import void_arithmetic.
+
 Module Void_Finite_Randomness.
 
   Import Void_Probability_Minimal.
@@ -7,12 +11,12 @@ Module Void_Finite_Randomness.
   Record RandomState := {
     pattern : Fin;
     mix_budget : Budget;
-    mix_heat : Heat
+    mix_spur : Spuren
   }.
   
   (* Draw "randomness" - just mix and extract *)
   Definition draw_b3 (state : RandomState) (b : Budget) 
-    : (Bool3 * RandomState * Budget * Heat) :=
+    : (Bool3 * RandomState * Budget * Spuren) :=
     match b with
     | fz => (BUnknown, state, fz, fz)  (* No budget = Unknown *)
     | fs b' =>
@@ -29,12 +33,12 @@ Module Void_Finite_Randomness.
                     | (true, b_final) =>
                         (BTrue, {| pattern := new_pattern;
                                   mix_budget := mb;
-                                  mix_heat := fs (mix_heat state) |},
+                                  mix_spur := fs (mix_spur state) |},
                          b_final, fs fz)
                     | (false, b_final) =>
                         (BFalse, {| pattern := new_pattern;
                                    mix_budget := mb;
-                                   mix_heat := fs (mix_heat state) |},
+                                   mix_spur := fs (mix_spur state) |},
                          b_final, fs fz)
                     end
                 end

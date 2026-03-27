@@ -105,31 +105,31 @@ Definition batch_long : list (list Fin) :=
 (* SECTION 3: HELPER EXTRACTORS                                              *)
 (******************************************************************************)
 
-Definition get_output_class (result : VoidBrain * Fin * FinProb * Budget * Heat) 
+Definition get_output_class (result : VoidBrain * Fin * FinProb * Budget * Spuren) 
   : Fin :=
   match result with
   | (_, class, _, _, _) => class
   end.
 
-Definition get_remaining_budget (result : VoidBrain * Fin * FinProb * Budget * Heat) 
+Definition get_remaining_budget (result : VoidBrain * Fin * FinProb * Budget * Spuren) 
   : Budget :=
   match result with
   | (_, _, _, b, _) => b
   end.
 
-Definition get_heat (result : VoidBrain * Fin * FinProb * Budget * Heat) 
-  : Heat :=
+Definition get_spur (result : VoidBrain * Fin * FinProb * Budget * Spuren) 
+  : Spuren :=
   match result with
   | (_, _, _, _, h) => h
   end.
 
-Definition get_confidence (result : VoidBrain * Fin * FinProb * Budget * Heat) 
+Definition get_confidence (result : VoidBrain * Fin * FinProb * Budget * Spuren) 
   : FinProb :=
   match result with
   | (_, _, conf, _, _) => conf
   end.
 
-Definition get_brain (result : VoidBrain * Fin * FinProb * Budget * Heat) 
+Definition get_brain (result : VoidBrain * Fin * FinProb * Budget * Spuren) 
   : VoidBrain :=
   match result with
   | (brain, _, _, _, _) => brain
@@ -139,13 +139,13 @@ Definition get_brain (result : VoidBrain * Fin * FinProb * Budget * Heat)
 (* SECTION 4: SCENARIO 1 - SINGLE CYCLE "HELLO WORLD"                        *)
 (******************************************************************************)
 
-Definition test_single_cycle : VoidBrain * Fin * FinProb * Budget * Heat :=
+Definition test_single_cycle : VoidBrain * Fin * FinProb * Budget * Spuren :=
   run_cycle my_brain input_bright_dark_bright max_val num_classes max_loc 
             test_fuel test_budget.
 
 Definition single_output : Fin := get_output_class test_single_cycle.
 Definition single_budget_after : Budget := get_remaining_budget test_single_cycle.
-Definition single_heat : Heat := get_heat test_single_cycle.
+Definition single_spur : Spuren := get_spur test_single_cycle.
 Definition single_confidence : FinProb := get_confidence test_single_cycle.
 Definition single_brain_after : VoidBrain := get_brain test_single_cycle.
 
@@ -153,7 +153,7 @@ Definition single_brain_after : VoidBrain := get_brain test_single_cycle.
 (* SECTION 5: SCENARIO 2 - BATCH LEARNING (SAME INPUT)                       *)
 (******************************************************************************)
 
-Definition test_batch_same : VoidBrain * list Fin * Budget * Heat :=
+Definition test_batch_same : VoidBrain * list Fin * Budget * Spuren :=
   run_cycles my_brain batch_same max_val num_classes max_loc 
              test_fuel test_budget [].
 
@@ -167,7 +167,7 @@ Definition batch_final_budget : Budget :=
   | (_, _, b, _) => b
   end.
 
-Definition batch_total_heat : Heat :=
+Definition batch_total_spur : Spuren :=
   match test_batch_same with
   | (_, _, _, h) => h
   end.
@@ -181,7 +181,7 @@ Definition batch_final_brain : VoidBrain :=
 (* SECTION 6: SCENARIO 3 - VARIED INPUT                                      *)
 (******************************************************************************)
 
-Definition test_batch_varied : VoidBrain * list Fin * Budget * Heat :=
+Definition test_batch_varied : VoidBrain * list Fin * Budget * Spuren :=
   run_cycles my_brain batch_varied max_val num_classes max_loc 
              test_fuel test_budget [].
 
@@ -190,7 +190,7 @@ Definition varied_outputs : list Fin :=
   | (_, outputs, _, _) => outputs
   end.
 
-Definition varied_heat : Heat :=
+Definition varied_spur : Spuren :=
   match test_batch_varied with
   | (_, _, _, h) => h
   end.
@@ -204,7 +204,7 @@ Definition varied_final_budget : Budget :=
 (* SECTION 7: SCENARIO 4 - LONG BATCH (5 REPEATS)                            *)
 (******************************************************************************)
 
-Definition test_batch_long : VoidBrain * list Fin * Budget * Heat :=
+Definition test_batch_long : VoidBrain * list Fin * Budget * Spuren :=
   run_cycles my_brain batch_long max_val num_classes max_loc 
              test_fuel test_budget [].
 
@@ -218,7 +218,7 @@ Definition long_final_budget : Budget :=
   | (_, _, b, _) => b
   end.
 
-Definition long_total_heat : Heat :=
+Definition long_total_spur : Spuren :=
   match test_batch_long with
   | (_, _, _, h) => h
   end.
@@ -232,16 +232,16 @@ Definition long_final_brain : VoidBrain :=
 (* SECTION 8: DIAGNOSTIC CHECKS                                              *)
 (******************************************************************************)
 
-Definition heat_after_single : Fin := brain_heat single_brain_after.
+Definition spur_after_single : Fin := brain_spur single_brain_after.
 Definition traces_after_single : Fin := memory_trace_count single_brain_after.
 Definition orbits_after_single : Fin := orbit_count single_brain_after.
 Definition exhausted_after_single : bool := is_exhausted single_brain_after.
 
-Definition heat_after_batch : Fin := brain_heat batch_final_brain.
+Definition spur_after_batch : Fin := brain_spur batch_final_brain.
 Definition traces_after_batch : Fin := memory_trace_count batch_final_brain.
 Definition exhausted_after_batch : bool := is_exhausted batch_final_brain.
 
-Definition heat_after_long : Fin := brain_heat long_final_brain.
+Definition spur_after_long : Fin := brain_spur long_final_brain.
 Definition traces_after_long : Fin := memory_trace_count long_final_brain.
 Definition orbits_after_long : Fin := orbit_count long_final_brain.
 
@@ -259,7 +259,7 @@ Definition many_inputs : list (list Fin) :=
    input_bright_dark_bright;
    input_all_dark].
 
-Definition test_exhaustion : VoidBrain * list Fin * Budget * Heat :=
+Definition test_exhaustion : VoidBrain * list Fin * Budget * Spuren :=
   run_cycles exhaustion_brain many_inputs max_val num_classes max_loc 
              test_fuel tiny_budget [].
 
@@ -302,23 +302,23 @@ Qed.
 
 (* === SINGLE CYCLE === *)
 Eval compute in single_output.
-Eval compute in single_heat.
+Eval compute in single_spur.
 Eval compute in single_budget_after.
 Eval compute in single_confidence.
 
 (* === BATCH (3x same) === *)
 Eval compute in batch_outputs.
-Eval compute in batch_total_heat.
+Eval compute in batch_total_spur.
 Eval compute in batch_final_budget.
 
 (* === VARIED INPUTS === *)
 Eval compute in varied_outputs.
-Eval compute in varied_heat.
+Eval compute in varied_spur.
 Eval compute in varied_final_budget.
 
 (* === LONG BATCH (5x same) === *)
 Eval compute in long_outputs.
-Eval compute in long_total_heat.
+Eval compute in long_total_spur.
 Eval compute in long_final_budget.
 
 (* === EXHAUSTION TEST === *)
@@ -327,7 +327,7 @@ Eval compute in exhaustion_remaining.
 Eval compute in did_exhaust.
 
 (* === DIAGNOSTICS === *)
-Eval compute in heat_after_single.
+Eval compute in spur_after_single.
 Eval compute in traces_after_single.
 Eval compute in orbits_after_single.
 

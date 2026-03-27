@@ -245,14 +245,6 @@ Fixpoint seek_sustainable_confidence_b (mp : MetaProb) (steps : Fin) (b : Budget
   | fs steps', fs b' =>
       (* Each step costs one tick to decay confidence *)
       seek_sustainable_confidence_b (decay_confidence mp) steps' b'
-  end
-where decay_confidence (mp : MetaProb) : MetaProb :=
-  match mp with
-  | Sharp p => Fuzzy p p p
-  | Fuzzy l c u => Vague l u
-  | Vague l u => Exhausted
-  | Exhausted => Void
-  | Void => Void
   end.
 
 (******************************************************************************)
@@ -351,34 +343,81 @@ Fixpoint evolve_range_b (r : ProbRange) (time_steps : Fin) (b : Budget)
   end.
 
 (******************************************************************************)
-(* PHILOSOPHICAL IMPLICATIONS                                                *)
+(* THEOREMS — The claims above are not philosophy. They are Qed.             *)
 (******************************************************************************)
 
-(* The system naturally models: 
-   
-   1. CONFIDENCE MAINTENANCE - Being certain costs one tick per step to
-      maintain, regardless of confidence level. No hierarchy of costs.
-   
-   2. UNIFORM DECAY - All confidence levels decay at one tick per step.
-      Sharp->Fuzzy->Vague->Exhausted->Void, each transition costs one tick.
-   
-   3. OBSERVATION COSTS ONE TICK - Looking forces collapse for one tick,
-      not varying amounts based on confidence level.
-   
-   4. NO EXPONENTIAL COSTS - Meta-levels don't cost exponentially more.
-      Being uncertain about uncertainty costs the same as being uncertain.
-   
-   5. RANGE SPREADING - Ranges naturally spread at one tick per step,
-      not based on arbitrary precision levels.
-   
-   This captures how bounded agents reason with uniform resource consumption:
-   - All mental operations cost the same unit of time
-   - Complexity emerges from how many steps you can afford
-   - Confidence naturally decays without maintenance
-   - "I don't know" is the rest state that costs nothing
-   
-   The thermodynamic ground state of epistemology emerges from uniform
-   resource depletion, not from hierarchical cost structures. *)
+(* Void is the thermodynamic ground state: decay cannot escape it. *)
+Theorem void_is_fixed_point : decay_confidence Void = Void.
+Proof. reflexivity. Qed.
+
+(* Exhausted decays to Void in one step. *)
+Theorem exhausted_decays_to_void : decay_confidence Exhausted = Void.
+Proof. reflexivity. Qed.
+
+(* ANY metaprobability decays to Void in at most 4 steps. *)
+Theorem decay_terminates : forall mp,
+  decay_confidence (decay_confidence (decay_confidence (decay_confidence mp))) = Void.
+Proof.
+  intro mp. destruct mp; reflexivity.
+Qed.
+
+(* Once Void, always Void — iterated decay is absorbed. *)
+Theorem decay_idempotent_at_void : forall n,
+  seek_sustainable_confidence_b Void n fz = (Void, fz).
+Proof.
+  intro n. destruct n; reflexivity.
+Qed.
+
+(* No budget forces decay — you cannot maintain without paying. *)
+Theorem no_budget_forces_decay : forall mp,
+  maintain_confidence_b mp fz = (decay_confidence mp, fz).
+Proof. intro mp. reflexivity. Qed.
+
+(* Maintenance with budget preserves confidence exactly. *)
+Theorem maintenance_preserves : forall mp b,
+  maintain_confidence_b mp (fs b) = (mp, b).
+Proof. intros. reflexivity. Qed.
+
+(* Observing Void yields half — maximum entropy. *)
+Theorem observe_void_is_half : forall b,
+  observe_metaprob_b Void (fs b) = (half, b).
+Proof. intros. reflexivity. Qed.
+
+(* Observing Exhausted also yields half — no information left. *)
+Theorem observe_exhausted_is_half : forall b,
+  observe_metaprob_b Exhausted (fs b) = (half, b).
+Proof. intros. reflexivity. Qed.
+
+(* Void absorbs addition — uncertainty is contagious. *)
+Theorem void_absorbs_add_l : forall mp b,
+  fst (add_metaprob_b Void mp (fs b)) = Void.
+Proof. intros mp b. destruct mp; reflexivity. Qed.
+
+Theorem void_absorbs_add_r : forall mp b,
+  fst (add_metaprob_b mp Void (fs b)) = Void.
+Proof.
+  intros mp b. destruct mp; reflexivity.
+Qed.
+
+(* No budget yields Exhausted — not Void, because you tried. *)
+Theorem no_budget_add_exhausted : forall mp1 mp2,
+  add_metaprob_b mp1 mp2 fz = (Exhausted, fz).
+Proof. intros. reflexivity. Qed.
+
+(* Void absorbs Bayesian update — evidence cannot update ignorance. *)
+Theorem void_absorbs_update : forall ev b,
+  tired_update_b Void ev (fs b) = (Void, b).
+Proof. intros. reflexivity. Qed.
+
+(* Exhausted absorbs update — too tired to learn. *)
+Theorem exhausted_absorbs_update : forall ev b,
+  tired_update_b Exhausted ev (fs b) = (Exhausted, b).
+Proof. intros. reflexivity. Qed.
+
+(* Second-order confusion is also a fixed point. *)
+Theorem confused_is_ground_state : forall mmp,
+  maintain_metameta_b mmp fz = (Confused, fz).
+Proof. intros. reflexivity. Qed.
 
 (******************************************************************************)
 (* EXPORTS                                                                    *)

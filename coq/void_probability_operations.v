@@ -22,15 +22,15 @@ Import Void_Arithmetic.Void_Probability_Division.
 
 (* Multiplication for independent co-occurrence - from void_probability_minimal.v *)
 Definition prob_mult_b := mult_prob_b.
-Definition prob_mult_heat := mult_prob_heat.
+Definition prob_mult_spur := mult_prob_spur.
 
 (* Addition for combining probabilities - from void_probability_minimal.v *)
 Definition prob_add_b := add_prob_b.
-Definition prob_add_heat := add_prob_heat.
+Definition prob_add_spur := add_prob_spur.
 
 (* Subtraction with saturation - from void_probability_minimal.v *)
 Definition prob_sub_b := sub_prob_b.
-Definition prob_sub_heat := sub_prob_heat.
+Definition prob_sub_spur := sub_prob_spur.
 
 (* Comparison - from void_probability_minimal.v *)
 Definition prob_le_b := Void_Probability_Minimal.prob_le_b.
@@ -40,7 +40,7 @@ Definition prob_eq_b3 := Void_Probability_Minimal.prob_eq_b3.
 
 (* Division - from void_arithmetic.v Void_Probability_Division module *)
 Definition prob_div_b := div_prob.
-Definition prob_div_heat := div_prob_heat.
+Definition prob_div_spur := div_prob_spur.
 
 (******************************************************************************)
 (* COMPLEMENT - Using subtraction from implicit 1                            *)
@@ -54,9 +54,9 @@ Definition prob_complement_b (p : FinProb) (b : Budget) : (FinProb * Budget) :=
   | (diff, b') => ((diff, d), b')
   end.
 
-Definition prob_complement_heat (p : FinProb) (b : Budget) : (FinProb * Budget * Heat) :=
+Definition prob_complement_spur (p : FinProb) (b : Budget) : (FinProb * Budget * Spuren) :=
   let (n, d) := p in
-  match sub_fin_heat n d b with
+  match sub_fin_spur n d b with
   | (diff, b', h) => ((diff, d), b', h)
   end.
 
@@ -76,14 +76,14 @@ Definition prob_max_b (p1 p2 : FinProb) (b : Budget) : (FinProb * Budget) :=
   | (false, b') => (p1, b')
   end.
 
-Definition prob_min_heat (p1 p2 : FinProb) (b : Budget) : (FinProb * Budget * Heat) :=
+Definition prob_min_spur (p1 p2 : FinProb) (b : Budget) : (FinProb * Budget * Spuren) :=
   match prob_le_b3 p1 p2 b with
   | (BTrue, b', h) => (p1, b', h)
   | (BFalse, b', h) => (p2, b', h)
   | (BUnknown, b', h) => (p1, b', h)  (* Default to first on unknown *)
   end.
 
-Definition prob_max_heat (p1 p2 : FinProb) (b : Budget) : (FinProb * Budget * Heat) :=
+Definition prob_max_spur (p1 p2 : FinProb) (b : Budget) : (FinProb * Budget * Spuren) :=
   match prob_le_b3 p1 p2 b with
   | (BTrue, b', h) => (p2, b', h)
   | (BFalse, b', h) => (p1, b', h)
@@ -109,18 +109,18 @@ Definition prediction_accuracy_b (predicted actual : FinProb) (rho : Resolution)
       end
   end.
 
-Definition prediction_accuracy_heat (predicted actual : FinProb) (rho : Resolution) (b : Budget)
-  : (FinProb * Budget * Heat) :=
+Definition prediction_accuracy_spur (predicted actual : FinProb) (rho : Resolution) (b : Budget)
+  : (FinProb * Budget * Spuren) :=
   match b with
   | fz => ((fz, fs fz), fz, fz)
   | fs b' =>
-      match prob_min_heat predicted actual b' with
+      match prob_min_spur predicted actual b' with
       | (min_val, b1, h1) =>
-          match prob_max_heat predicted actual b1 with
+          match prob_max_spur predicted actual b1 with
           | (max_val, b2, h2) =>
-              match prob_div_heat min_val max_val rho b2 with
+              match prob_div_spur min_val max_val rho b2 with
               | (result, b3, h3) => 
-                  (result, b3, add_heat h1 (add_heat h2 h3))
+                  (result, b3, add_spur h1 (add_spur h2 h3))
               end
           end
       end
@@ -152,21 +152,21 @@ Definition prob_weighted_avg_b (p1 p2 weight : FinProb) (rho : Resolution) (b : 
       end
   end.
 
-Definition prob_weighted_avg_heat (p1 p2 weight : FinProb) (rho : Resolution) (b : Budget)
-  : (FinProb * Budget * Heat) :=
+Definition prob_weighted_avg_spur (p1 p2 weight : FinProb) (rho : Resolution) (b : Budget)
+  : (FinProb * Budget * Spuren) :=
   match b with
   | fz => (p1, fz, fz)
   | fs b' =>
-      match prob_mult_heat weight p1 b' with
+      match prob_mult_spur weight p1 b' with
       | (weighted_p1, b1, h1) =>
-          match prob_complement_heat weight b1 with
+          match prob_complement_spur weight b1 with
           | (one_minus_w, b2, h2) =>
-              match prob_mult_heat one_minus_w p2 b2 with
+              match prob_mult_spur one_minus_w p2 b2 with
               | (weighted_p2, b3, h3) =>
-                  match prob_add_heat weighted_p1 weighted_p2 b3 with
+                  match prob_add_spur weighted_p1 weighted_p2 b3 with
                   | (result, b4, h4) =>
                       (result, b4, 
-                       add_heat h1 (add_heat h2 (add_heat h3 h4)))
+                       add_spur h1 (add_spur h2 (add_spur h3 h4)))
                   end
               end
           end
@@ -189,15 +189,15 @@ Definition prob_distance_b (p1 p2 : FinProb) (rho : Resolution) (b : Budget)
       end
   end.
 
-Definition prob_distance_heat (p1 p2 : FinProb) (rho : Resolution) (b : Budget)
-  : (FinProb * Budget * Heat) :=
+Definition prob_distance_spur (p1 p2 : FinProb) (rho : Resolution) (b : Budget)
+  : (FinProb * Budget * Spuren) :=
   match b with
   | fz => ((fs fz, fs (fs fz)), fz, fz)
   | fs b' =>
-      match prediction_accuracy_heat p1 p2 rho b' with
+      match prediction_accuracy_spur p1 p2 rho b' with
       | (accuracy, b1, h1) =>
-          match prob_complement_heat accuracy b1 with
-          | (distance, b2, h2) => (distance, b2, add_heat h1 h2)
+          match prob_complement_spur accuracy b1 with
+          | (distance, b2, h2) => (distance, b2, add_spur h1 h2)
           end
       end
   end.

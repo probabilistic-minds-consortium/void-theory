@@ -64,7 +64,7 @@ End PatternOps.
 
 (* Budget transfer - moving resources between entities costs *)
 Definition transfer_budget (from to : Budget) (amount : Fin) (b : Budget) 
-  : (Budget * Budget * Heat) :=
+  : (Budget * Budget * Spuren) :=
   match b with
   | fz => (from, to, fz)  (* No budget to perform transfer *)
   | fs b' =>
@@ -100,15 +100,15 @@ Module Movement.
   Definition resonant : PatternTransform :=
     fun p b => (p, b).  (* Identity costs minimal budget *)
   
-  (* Thermal diffusion using heat - costs budget *)
-  Definition thermal (heat : Fin) : PatternTransform :=
+  (* Thermal diffusion using Spuren - costs budget *)
+  Definition thermal (sp : Fin) : PatternTransform :=
     fun p b => 
-      match add_fin (location p) heat b with
+      match add_fin (location p) sp b with
       | (new_loc, b1) => 
           (* Create thermal pattern and let it decay *)
           let tp := {| pattern := {| location := new_loc; 
                                     strength := strength p |};
-                      heat_generated := heat;
+                      spur_generated := sp;
                       compute_budget := b1 |} in
           match thermal_decay tp with
           | Some tp' => (pattern tp', compute_budget tp')
@@ -209,24 +209,24 @@ Module ThermalOps.
     match b with
     | fz => 
         ({| pattern := p;
-            heat_generated := fz;
+            spur_generated := fz;
             compute_budget := fz |}, fz)
     | fs b' =>
         ({| pattern := p;
-            heat_generated := fz;  (* Starts cold *)
+            spur_generated := fz;  (* Starts cold *)
             compute_budget := b' |}, b')
     end.
   
   (* Pattern experiences thermal dynamics - simplified version *)
-  Definition thermal_evolution (p : Pattern) (heat : Fin) (b : Budget) 
+  Definition thermal_evolution (p : Pattern) (sp : Fin) (b : Budget) 
     : (Pattern * Budget) :=
     match to_thermal p b with
     | (tp, b1) =>
-        (* Create thermal pattern with the given heat *)
-        let tp_with_heat := {| pattern := pattern tp;
-                               heat_generated := heat;
+        (* Create thermal pattern with the given Spuren *)
+        let tp_with_spur := {| pattern := pattern tp;
+                               spur_generated := sp;
                                compute_budget := compute_budget tp |} in
-        match compute_with_heat tp_with_heat with
+        match compute_with_spur tp_with_spur with
         | Some tp' => 
             match thermal_decay tp' with
             | Some tp'' => (pattern tp'', compute_budget tp'')
@@ -294,8 +294,8 @@ End Entanglement.
 (* COMPOSED OPERATIONS WITH BUDGET                                            *)
 (******************************************************************************)
 
-Definition thermal_resonant_flow (heat : Fin) : PatternTransform :=
-  Movement.compose (Movement.thermal heat) Movement.resonant.
+Definition thermal_resonant_flow (sp : Fin) : PatternTransform :=
+  Movement.compose (Movement.thermal sp) Movement.resonant.
 
 Definition crisis_budget_seek (target : Fin) : PatternTransform :=
   Movement.compose Movement.crisis (Movement.budget_seek target).
@@ -325,7 +325,7 @@ Definition budget_transfer_write_ext := budget_transfer_write.
    - Algebra itself has a cost
    - Composition depletes resources at each step  
    - Entanglement creates resource dependencies
-   - Heat and computation are fundamentally linked
+   - Spuren and computation are fundamentally linked
    - Even mathematical operations obey thermodynamics
    - Resource redistribution requires work
    

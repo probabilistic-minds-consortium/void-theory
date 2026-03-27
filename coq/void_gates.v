@@ -19,7 +19,7 @@ Inductive Fin : Type :=
   | fs : Fin -> Fin.
 
 Definition Budget := Fin.
-Definition Heat := Fin.
+Definition Spuren := Fin.
 
 (* FinProb = (numerator, denominator) *)
 Definition FinProb := (Fin * Fin)%type.
@@ -263,25 +263,25 @@ Definition gate_not_b (a : FinProb) (budget : Budget) : (FinProb * Budget) :=
   complement_b a budget.
 
 (******************************************************************************)
-(* HEAT TRACKING                                                              *)
+(* SPUR TRACKING                                                              *)
 (******************************************************************************)
 
 Record GateResult := {
   result : FinProb;
   remaining_budget : Budget;
-  heat_generated : Heat
+  spur_generated : Spuren
 }.
 
-Definition compute_heat (initial final : Budget) : Heat :=
+Definition compute_spur (initial final : Budget) : Spuren :=
   fst (sub_fin initial final initial).
 
-Definition gate_xor_heat (a b : FinProb) (budget : Budget) : GateResult :=
+Definition gate_xor_spur (a b : FinProb) (budget : Budget) : GateResult :=
   let initial := budget in
   match gate_xor_b a b budget with
   | (res, remaining) =>
       {| result := res;
          remaining_budget := remaining;
-         heat_generated := compute_heat initial remaining |}
+         spur_generated := compute_spur initial remaining |}
   end.
 
 (******************************************************************************)

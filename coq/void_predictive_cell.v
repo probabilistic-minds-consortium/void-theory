@@ -23,7 +23,7 @@ Module Void_Predictive_Cell.
 (******************************************************************************)
 
 Definition bool3_eq_b3 (a b : Bool3) (budget : Budget)
-  : (Bool3 * Budget * Heat) :=
+  : (Bool3 * Budget * Spuren) :=
   match budget with
   | fz => (BUnknown, fz, fz)
   | fs budget' =>
@@ -46,7 +46,7 @@ Record PredictiveCell := mkPredCell {
   weights_for     : list Fin;
   weights_against : list Fin;
   cell_budget     : Budget;
-  cell_heat       : Heat
+  cell_spur       : Spuren
 }.
 
 (******************************************************************************)
@@ -59,15 +59,15 @@ Record PredictiveCell := mkPredCell {
 
 Fixpoint accumulate_for (inputs : list Bool3) (ws : list Fin)
                          (acc : Fin) (b : Budget)
-  : (Fin * Budget * Heat) :=
+  : (Fin * Budget * Spuren) :=
   match inputs, ws with
   | [], _    => (acc, b, fz)
   | _, []    => (acc, b, fz)
   | BTrue :: ins, w :: ws' =>
-      match add_fin_b_heat acc w b with
+      match add_fin_b_spur acc w b with
       | (acc', b', h) =>
           match accumulate_for ins ws' acc' b' with
-          | (r, b_final, h2) => (r, b_final, add_heat h h2)
+          | (r, b_final, h2) => (r, b_final, add_spur h h2)
           end
       end
   | _ :: ins, _ :: ws' =>
@@ -76,15 +76,15 @@ Fixpoint accumulate_for (inputs : list Bool3) (ws : list Fin)
 
 Fixpoint accumulate_against (inputs : list Bool3) (ws : list Fin)
                              (acc : Fin) (b : Budget)
-  : (Fin * Budget * Heat) :=
+  : (Fin * Budget * Spuren) :=
   match inputs, ws with
   | [], _    => (acc, b, fz)
   | _, []    => (acc, b, fz)
   | BFalse :: ins, w :: ws' =>
-      match add_fin_b_heat acc w b with
+      match add_fin_b_spur acc w b with
       | (acc', b', h) =>
           match accumulate_against ins ws' acc' b' with
-          | (r, b_final, h2) => (r, b_final, add_heat h h2)
+          | (r, b_final, h2) => (r, b_final, add_spur h h2)
           end
       end
   | _ :: ins, _ :: ws' =>
@@ -99,7 +99,7 @@ Fixpoint accumulate_against (inputs : list Bool3) (ws : list Fin)
 (******************************************************************************)
 
 Definition predict (cell : PredictiveCell) (inputs : list Bool3)
-  : (Bool3 * Budget * Heat) :=
+  : (Bool3 * Budget * Spuren) :=
   match accumulate_for inputs (weights_for cell) fz (cell_budget cell) with
   | (acc_f, b1, h1) =>
     match accumulate_against inputs (weights_against cell) fz b1 with
@@ -110,20 +110,20 @@ Definition predict (cell : PredictiveCell) (inputs : list Bool3)
         match le_fin_b3 acc_f acc_a b3 with
         | (BTrue, b4, h4) =>
             (* for <= against AND against <= for: TIE *)
-            (BUnknown, b4, add_heat h1 (add_heat h2 (add_heat h3 h4)))
+            (BUnknown, b4, add_spur h1 (add_spur h2 (add_spur h3 h4)))
         | (BFalse, b4, h4) =>
             (* against <= for BUT NOT for <= against: FOR WINS *)
-            (BTrue, b4, add_heat h1 (add_heat h2 (add_heat h3 h4)))
+            (BTrue, b4, add_spur h1 (add_spur h2 (add_spur h3 h4)))
         | (BUnknown, b4, h4) =>
             (* Budget exhausted *)
-            (BUnknown, b4, add_heat h1 (add_heat h2 (add_heat h3 h4)))
+            (BUnknown, b4, add_spur h1 (add_spur h2 (add_spur h3 h4)))
         end
       | (BFalse, b3, h3) =>
           (* NOT against <= for: AGAINST WINS *)
-          (BFalse, b3, add_heat h1 (add_heat h2 h3))
+          (BFalse, b3, add_spur h1 (add_spur h2 h3))
       | (BUnknown, b3, h3) =>
           (* Budget exhausted *)
-          (BUnknown, b3, add_heat h1 (add_heat h2 h3))
+          (BUnknown, b3, add_spur h1 (add_spur h2 h3))
       end
     end
   end.
@@ -139,7 +139,7 @@ Parameter surprise_cost  : Fin.
 (* UPDATE — budget flow only                                                 *)
 (*                                                                            *)
 (* Correct → refund (budget from environment pool).                          *)
-(* Wrong → penalty (budget to heat).                                         *)
+(* Wrong → penalty (budget to Spuren).                                         *)
 (* Unknown → comparison cost only.                                           *)
 (* Weights NEVER change. This is selection, not adjustment.                  *)
 (******************************************************************************)
@@ -149,22 +149,22 @@ Definition update_cell (cell : PredictiveCell) (prediction truth : Bool3)
   match bool3_eq_b3 prediction truth (cell_budget cell) with
   | (BTrue, b', h) =>
       (* CORRECT — low surprise — refund from environment *)
-      match add_fin_b_heat b' precision_gain b' with
+      match add_fin_b_spur b' precision_gain b' with
       | (new_b, _, h2) =>
           mkPredCell (weights_for cell) (weights_against cell)
-                     new_b (add_heat (cell_heat cell) (add_heat h h2))
+                     new_b (add_spur (cell_spur cell) (add_spur h h2))
       end
   | (BFalse, b', h) =>
-      (* WRONG — high surprise — penalty to heat *)
+      (* WRONG — high surprise — penalty to Spuren *)
       match spend_aux b' surprise_cost with
       | (new_b, h2) =>
           mkPredCell (weights_for cell) (weights_against cell)
-                     new_b (add_heat (cell_heat cell) (add_heat h h2))
+                     new_b (add_spur (cell_spur cell) (add_spur h h2))
       end
   | (BUnknown, b', h) =>
       (* BUDGET EXHAUSTED — can't even compare — no change *)
       mkPredCell (weights_for cell) (weights_against cell)
-                 b' (add_heat (cell_heat cell) h)
+                 b' (add_spur (cell_spur cell) h)
   end.
 
 (******************************************************************************)
@@ -194,7 +194,7 @@ Proof.
   destruct (bool3_eq_b3 pred truth (cell_budget cell)) as [[r b'] h] eqn:Heq.
   destruct r.
   - (* BTrue: correct prediction *)
-    destruct (add_fin_b_heat b' precision_gain b') as [[new_b ?] h2].
+    destruct (add_fin_b_spur b' precision_gain b') as [[new_b ?] h2].
     simpl. auto.
   - (* BFalse: wrong prediction *)
     destruct (spend_aux b' surprise_cost) as [new_b h2].
@@ -266,12 +266,12 @@ Qed.
 
 Lemma accumulate_against_bfalse : forall w ws acc b,
   accumulate_against [BFalse] (w :: ws) acc b =
-  match add_fin_b_heat acc w b with
+  match add_fin_b_spur acc w b with
   | (acc', b', h) => (acc', b', h)
   end.
 Proof.
   intros. simpl.
-  destruct (add_fin_b_heat acc w b) as [[acc' b'] h].
+  destruct (add_fin_b_spur acc w b) as [[acc' b'] h].
   reflexivity.
 Qed.
 
@@ -289,7 +289,7 @@ Proof.
   simpl.
   (* Goal: (fs acc, b, fs fz) <> (acc, fs b, fz) *)
   intro Heq.
-  (* Extract heat component: fs fz = fz — contradiction *)
+  (* Extract Spuren component: fs fz = fz — contradiction *)
   apply (f_equal snd) in Heq.
   simpl in Heq.
   discriminate Heq.
@@ -320,12 +320,12 @@ Qed.
 (* THEOREM 6: SPEND_AUX PROPERTIES                                          *)
 (*                                                                            *)
 (* Was: Axiom budget_transfer_conserves in error audit (incorrect as stated  *)
-(* — fails when cost > budget because spend_aux returns full cost as heat).  *)
+(* — fails when cost > budget because spend_aux returns full cost as Spuren).  *)
 (*                                                                            *)
 (* Now: Two correct lemmas about spend_aux behavior.                         *)
 (******************************************************************************)
 
-(* Dead cells can't spend — but spend_aux records the cost as heat. *)
+(* Dead cells can't spend — but spend_aux records the cost as Spuren. *)
 Lemma spend_aux_dead : forall cost,
   spend_aux fz cost = (fz, cost).
 Proof.
@@ -344,7 +344,7 @@ Qed.
 (*                                                                            *)
 (* DEFINES:                                                                  *)
 (*   bool3_eq_b3          — 3-valued Bool3 equality, 1 tick                  *)
-(*   PredictiveCell       — dual weights, budget, heat, NO threshold         *)
+(*   PredictiveCell       — dual weights, budget, Spuren, NO threshold         *)
 (*   accumulate_for       — BTrue inputs add to evidence-for                 *)
 (*   accumulate_against   — BFalse inputs add to evidence-against            *)
 (*   predict              — dual comparison, tie = BUnknown                  *)
@@ -358,13 +358,13 @@ Qed.
 (*   bfalse_is_active         — BFalse ≠ BUnknown in accumulation           *)
 (*   dead_is_bfalse           — dead cell reports BFalse                     *)
 (*   alive_has_budget         — alive cell has fs n budget                   *)
-(*   spend_aux_dead            — dead cell spend records cost as heat        *)
+(*   spend_aux_dead            — dead cell spend records cost as Spuren        *)
 (*   spend_aux_zero_cost      — zero cost is identity                       *)
 (*                                                                            *)
 (* DOES NOT USE:                                                             *)
 (*   FinProb          (no fractions in cell operations)                      *)
-(*   mult_fin_heat    (no multiplication)                                    *)
-(*   sub_saturate_b_heat directly (only via spend_aux)                       *)
+(*   mult_fin_spur    (no multiplication)                                    *)
+(*   sub_saturate_b_spur directly (only via spend_aux)                       *)
 (*   erode / constrict (deleted with void_perceptron.v)                      *)
 (*   threshold : Fin  (no threshold field)                                   *)
 (*   nat              (forbidden in VOID computation)                        *)

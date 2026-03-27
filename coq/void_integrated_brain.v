@@ -67,7 +67,7 @@ Definition default_thermal_system (budget : Budget)
      Void_Thermal_Convection.cells := [];
      Void_Thermal_Convection.gravity_strength := fs fz;
      Void_Thermal_Convection.system_budget := budget;
-     Void_Thermal_Convection.total_heat := fz |}.
+     Void_Thermal_Convection.total_spur := fz |}.
 
 Definition init_brain (budget : Budget) : VoidBrain :=
   {| cortex := default_thermal_system budget;
@@ -90,7 +90,7 @@ Definition needs_reseed (pool : EntropyPool) : bool :=
   end.
 
 Definition maybe_reseed (pool : EntropyPool) (b : Budget) 
-  : (EntropyPool * Budget * Heat) :=
+  : (EntropyPool * Budget * Spuren) :=
   match b with
   | fz => (pool, fz, fz)
   | fs b' =>
@@ -106,19 +106,19 @@ Definition maybe_reseed (pool : EntropyPool) (b : Budget)
 
 Definition process_single_pattern (p : Pattern) (brain : VoidBrain) 
                                   (fuel : Fin) (b : Budget)
-  : (Pattern * VoidBrain * Budget * Heat) :=
+  : (Pattern * VoidBrain * Budget * Spuren) :=
   match b with
   | fz => (p, brain, fz, fz)
   | fs b' =>
       match cognitive_router p (cognition brain) fuel b' with
-      | (routed_pattern, new_cognition, b1, route_heat) =>
+      | (routed_pattern, new_cognition, b1, route_spur) =>
           let new_brain := {| cortex := cortex brain;
                               memory := memory brain;
                               cognition := new_cognition;
                               entropy := entropy brain;
                               global_time := global_time brain;
                               brain_observer := brain_observer brain |} in
-          (routed_pattern, new_brain, b1, route_heat)
+          (routed_pattern, new_brain, b1, route_spur)
       end
   end.
 
@@ -127,23 +127,23 @@ Definition process_single_pattern (p : Pattern) (brain : VoidBrain)
 (******************************************************************************)
 
 Fixpoint process_patterns (patterns : list Pattern) (brain : VoidBrain)
-                          (fuel : Fin) (b : Budget) (acc_heat : Heat)
-  : (list Pattern * VoidBrain * Budget * Heat) :=
+                          (fuel : Fin) (b : Budget) (acc_spur : Spuren)
+  : (list Pattern * VoidBrain * Budget * Spuren) :=
   match fuel with
-  | fz => ([], brain, b, acc_heat)
+  | fz => ([], brain, b, acc_spur)
   | fs fuel' =>
       match patterns with
-      | [] => ([], brain, b, acc_heat)
+      | [] => ([], brain, b, acc_spur)
       | p :: rest =>
           match b with
-          | fz => ([], brain, fz, acc_heat)
+          | fz => ([], brain, fz, acc_spur)
           | fs b' =>
               match process_single_pattern p brain fuel' b' with
               | (processed_p, new_brain, b1, heat1) =>
                   match process_patterns rest new_brain fuel' b1 
-                                        (add_heat acc_heat heat1) with
-                  | (processed_rest, final_brain, b2, total_heat) =>
-                      (processed_p :: processed_rest, final_brain, b2, total_heat)
+                                        (add_spur acc_spur heat1) with
+                  | (processed_rest, final_brain, b2, total_spur) =>
+                      (processed_p :: processed_rest, final_brain, b2, total_spur)
                   end
               end
           end
@@ -161,7 +161,7 @@ Definition pattern_to_state (p : Pattern) : State :=
 
 Definition remember_strongest (patterns : list Pattern) (brain : VoidBrain) 
                               (b : Budget)
-  : (VoidBrain * Budget * Heat) :=
+  : (VoidBrain * Budget * Spuren) :=
   match b with
   | fz => (brain, fz, fz)
   | fs b' =>
@@ -224,7 +224,7 @@ Definition advance_time (brain : VoidBrain) (b : Budget)
 Definition run_cycle (brain : VoidBrain) (raw_input : list Fin) 
                      (max_value : Fin) (num_classes : Fin) (max_location : Fin)
                      (fuel : Fin) (b : Budget)
-  : (VoidBrain * Fin * FinProb * Budget * Heat) :=
+  : (VoidBrain * Fin * FinProb * Budget * Spuren) :=
   match b with
   | fz => (brain, fz, (fs fz, fs (fs fz)), fz, fz)
   | fs b' =>
@@ -253,15 +253,15 @@ Definition run_cycle (brain : VoidBrain) (raw_input : list Fin)
                           | fs b6 =>
                               match remember_strongest processed_patterns brain3 b6 with
                               | (brain4, b7, heat3) =>
-                                  let total_heat := add_heat heat2 heat3 in
+                                  let total_spur := add_spur heat2 heat3 in
                                   match b7 with
-                                  | fz => (brain4, fz, (fs fz, fs (fs fz)), fz, total_heat)
+                                  | fz => (brain4, fz, (fs fz, fs (fs fz)), fz, total_spur)
                                   | fs b8 =>
                                       match processed_patterns with
                                       | [] => 
                                           match advance_time brain4 b8 with
                                           | (brain5, b9) =>
-                                              (brain5, fz, (fs fz, fs (fs fz)), b9, total_heat)
+                                              (brain5, fz, (fs fz, fs (fs fz)), b9, total_spur)
                                           end
                                       | output_p :: _ =>
                                           match decode_to_class_b output_p num_classes 
@@ -269,7 +269,7 @@ Definition run_cycle (brain : VoidBrain) (raw_input : list Fin)
                                           | (class_idx, confidence, b9) =>
                                               match advance_time brain4 b9 with
                                               | (brain5, b10) =>
-                                                  (brain5, class_idx, confidence, b10, total_heat)
+                                                  (brain5, class_idx, confidence, b10, total_spur)
                                               end
                                           end
                                       end
@@ -290,7 +290,7 @@ Definition run_cycle (brain : VoidBrain) (raw_input : list Fin)
 Fixpoint run_cycles (brain : VoidBrain) (inputs : list (list Fin))
                     (max_value : Fin) (num_classes : Fin) (max_location : Fin)
                     (fuel : Fin) (b : Budget) (acc_outputs : list Fin)
-  : (VoidBrain * list Fin * Budget * Heat) :=
+  : (VoidBrain * list Fin * Budget * Spuren) :=
   match fuel with
   | fz => (brain, acc_outputs, b, fz)
   | fs fuel' =>
@@ -305,7 +305,7 @@ Fixpoint run_cycles (brain : VoidBrain) (inputs : list (list Fin))
                   match run_cycles new_brain rest_inputs max_value num_classes 
                                    max_location fuel' b1 (acc_outputs ++ [output_class]) with
                   | (final_brain, all_outputs, b2, heat2) =>
-                      (final_brain, all_outputs, b2, add_heat heat1 heat2)
+                      (final_brain, all_outputs, b2, add_spur heat1 heat2)
                   end
               end
           end
@@ -316,8 +316,8 @@ Fixpoint run_cycles (brain : VoidBrain) (inputs : list (list Fin))
 (* SECTION 10: DIAGNOSTIC FUNCTIONS                                          *)
 (******************************************************************************)
 
-Definition brain_heat (brain : VoidBrain) : Fin :=
-  Void_Thermal_Convection.total_heat (cortex brain).
+Definition brain_spur (brain : VoidBrain) : Fin :=
+  Void_Thermal_Convection.total_spur (cortex brain).
 
 Fixpoint count_list {A : Type} (l : list A) : Fin :=
   match l with
@@ -351,7 +351,7 @@ Definition reset_brain (brain : VoidBrain) (new_budget : Budget) : VoidBrain :=
        Void_Thermal_Convection.gravity_strength := 
          Void_Thermal_Convection.gravity_strength old_cortex;
        Void_Thermal_Convection.system_budget := new_budget;
-       Void_Thermal_Convection.total_heat := fz |} in
+       Void_Thermal_Convection.total_spur := fz |} in
   let new_cognition := 
     {| active_orbits := active_orbits (cognition brain);
        interference_field := interference_field (cognition brain);
@@ -372,7 +372,7 @@ Definition VoidBrain_ext := VoidBrain.
 Definition init_brain_ext := init_brain.
 Definition run_cycle_ext := run_cycle.
 Definition run_cycles_ext := run_cycles.
-Definition brain_heat_ext := brain_heat.
+Definition brain_heat_ext := brain_spur.
 Definition is_exhausted_ext := is_exhausted.
 Definition reset_brain_ext := reset_brain.
 

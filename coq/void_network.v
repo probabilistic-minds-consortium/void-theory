@@ -113,7 +113,7 @@ Definition fire_weighted (wc : WeightedCell) (input : Signal)
     (BUnknown, wc)
   else
     let b := cell_budget (cell wc) in
-    let h := cell_heat (cell wc) in
+    let h := cell_spur (cell wc) in
     let thr := cell_threshold (cell wc) in
     match partial_weighted_sum input (weights wc) b with
     | (signal, b') =>
@@ -265,7 +265,7 @@ Proof.
   - simpl. reflexivity.
   - destruct (partial_weighted_sum input (weights wc) (cell_budget (cell wc)))
       as [signal b'].
-    destruct (activate (mkCell (cell_threshold (cell wc)) b' (cell_heat (cell wc))) signal)
+    destruct (activate (mkCell (cell_threshold (cell wc)) b' (cell_spur (cell wc))) signal)
       as [r cell_final].
     simpl. reflexivity.
 Qed.

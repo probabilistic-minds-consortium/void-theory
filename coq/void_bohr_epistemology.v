@@ -19,7 +19,7 @@
 (* Bohr pervades every module.                                                *)
 (*                                                                            *)
 (* DEPENDS ON:                                                                *)
-(*   void_finite_minimal.v       - Fin, Budget, Heat, Bool3, fin_eq_b3       *)
+(*   void_finite_minimal.v       - Fin, Budget, Spuren, Bool3, fin_eq_b3       *)
 (*   void_probability_minimal.v  - FinProb                                    *)
 (*   void_pattern.v              - Pattern, Observer                          *)
 (*   void_arithmetic.v           - budgeted arithmetic                        *)
@@ -183,9 +183,9 @@ Qed.
 (* Bohr: physics concerns what we can SAY about nature.                       *)
 (*                                                                            *)
 (* Every observation obeys a conservation law:                                *)
-(*   heat + remaining_budget = original_budget                                *)
+(*   Spuren + remaining_budget = original_budget                                *)
 (*                                                                            *)
-(* Heat is generated. Budget is consumed. The process is irreversible.        *)
+(* Spuren is generated. Budget is consumed. The process is irreversible.        *)
 (* You cannot unask a question. You cannot reclaim the budget spent on        *)
 (* an observation. This IS the second law of thermodynamics, expressed        *)
 (* in the only language that matters: finite arithmetic.                      *)
@@ -194,13 +194,13 @@ Qed.
 
 Theorem eq_conservation : forall a b bud bud' res h,
   fin_eq_b3 a b bud = (res, bud', h) ->
-  add_heat h bud' = bud.
-Proof. apply heat_conservation_eq3. Qed.
+  add_spur h bud' = bud.
+Proof. apply spur_conservation_eq3. Qed.
 
 Theorem le_conservation : forall a b bud bud' res h,
   le_fin_b3 a b bud = (res, bud', h) ->
-  add_heat h bud' = bud.
-Proof. apply heat_conservation_le3. Qed.
+  add_spur h bud' = bud.
+Proof. apply spur_conservation_le3. Qed.
 
 Theorem definite_answer_costs : forall a b bud bud' h,
   fin_eq_b3 a b (fs bud) = (BTrue, bud', h) \/
@@ -221,7 +221,7 @@ Proof.
     inversion Heq; subst. exists h0. reflexivity.
 Qed.
 
-Lemma leF_add_heat_r : forall h x, leF x (add_heat h x).
+Lemma leF_add_spur_r : forall h x, leF x (add_spur h x).
 Proof.
   intros h. induction x as [|x' IH].
   - apply leF_z.
@@ -240,8 +240,8 @@ Proof.
     + apply leF_step.
     + destruct (fin_eq_b3 a' b' bud') as [[r0 b0] h0] eqn:E. simpl.
       apply leF_trans with (y := bud').
-      * assert (Hc := heat_conservation_eq3 a' b' bud' b0 r0 h0 E).
-        rewrite <- Hc. apply leF_add_heat_r.
+      * assert (Hc := spur_conservation_eq3 a' b' bud' b0 r0 h0 E).
+        rewrite <- Hc. apply leF_add_spur_r.
       * apply leF_step.
 Qed.
 
@@ -389,7 +389,7 @@ Qed.
 (* observer enters a state of permanent BUnknown from which there is          *)
 (* no return.                                                                 *)
 (*                                                                            *)
-(* This is not heat death as metaphor. This is heat death as theorem.         *)
+(* This is not Spuren exhaustion as metaphor. This is Spuren exhaustion as theorem.         *)
 (* A finite being can only ask finitely many questions. Then: silence.        *)
 (*                                                                            *)
 (******************************************************************************)
@@ -531,7 +531,7 @@ Proof. simpl. reflexivity. Qed.
 (*    BUnknown is a constructor. Not BTrue. Not BFalse. Period.               *)
 (*                                                                            *)
 (* 3. IRREVERSIBILITY is conservation.                                        *)
-(*    heat + remaining = original. In every operation.                         *)
+(*    Spuren + remaining = original. In every operation.                         *)
 (*    Budget flows one direction: down.                                        *)
 (*                                                                            *)
 (* 4. COMPLEMENTARITY crosses module boundaries.                              *)

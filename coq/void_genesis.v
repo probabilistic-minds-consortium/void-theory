@@ -37,9 +37,10 @@ Parameter GenerativeField : Type.
 (* The observer does not choose 'p'. 'p' is a parameter of the system. *)
 Parameter p_situated : GenerativeField.
 
-(* We postulate that boundaries exist but are unreachable (not in the Type) *)
-Axiom boundaries_unreachable : 
-  forall (x : GenerativeField), True. (* Placeholder for "x is strictly inside" *)
+(* Boundaries are unreachable — structurally trivial in current formalization *)
+Lemma boundaries_unreachable :
+  forall (x : GenerativeField), True.
+Proof. intro. exact I. Qed.
 
 (******************************************************************************)
 (* 3. DISTINCTION ACTS                                                        *)
@@ -54,14 +55,14 @@ Inductive Region :=
 (* The primitive operation: perform_distinction *)
 (* Text: "Successor = distinction act (constructed)" *)
 Parameter perform_distinction : 
-  GenerativeField -> Budget -> (Region * Region * Budget * Heat).
+  GenerativeField -> Budget -> (Region * Region * Budget * Spuren).
 
 (* Text: "Each distinction act consumes exactly one mu-tick of budget" *)
 Axiom distinction_cost : 
   forall (f : GenerativeField) (b : Budget),
   exists (r1 r2 : Region) (b_rem : Budget),
     perform_distinction f b = (r1, r2, b_rem, operation_cost) /\
-    add_heat operation_cost b_rem = b. (* Strict Conservation *)
+    add_spur operation_cost b_rem = b. (* Strict Conservation *)
 
 (******************************************************************************)
 (* 4. NUMBERS AS TRACES                                                       *)
@@ -74,7 +75,7 @@ Axiom distinction_cost :
 Definition Trace := Fin.
 
 (* The "Successor" is the act of paying for a distinction *)
-Definition next_trace (current : Trace) (b : Budget) : (Trace * Budget * Heat) :=
+Definition next_trace (current : Trace) (b : Budget) : (Trace * Budget * Spuren) :=
   match b with
   | fz => (current, fz, fz) (* No budget = No successor *)
   | fs b_rem => 

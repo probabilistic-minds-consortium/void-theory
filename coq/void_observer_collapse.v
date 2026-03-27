@@ -134,10 +134,10 @@ Definition observer_field_b (center : Fin) (radius : Fin) (obs : Observer) (b : 
               ([(center, obs);
                 (fs center, {| sensitivity := sens1;
                                obs_budget := obs_budget obs;
-                               obs_heat := obs_heat obs |});
+                               obs_spur := obs_spur obs |});
                 (fs (fs center), {| sensitivity := sens2;
                                     obs_budget := obs_budget obs;
-                                    obs_heat := obs_heat obs |})], b3)
+                                    obs_spur := obs_spur obs |})], b3)
           end
       end
   end.
@@ -174,7 +174,7 @@ Definition observe_with_backaction_b (p : Pattern) (obs : Observer) (b : Budget)
       | (new_sens, b2) =>
           (p', {| sensitivity := new_sens;
                   obs_budget := obs_budget obs;
-                  obs_heat := obs_heat obs |}, b2)
+                  obs_spur := obs_spur obs |}, b2)
       end
   end.
 
@@ -201,7 +201,7 @@ Definition interfering_observers_b (obs1 obs2 : Observer) (b : Budget)
   | (new_sens, b') =>
       ({| sensitivity := new_sens;
           obs_budget := obs_budget obs1;
-          obs_heat := obs_heat obs1 |}, b')
+          obs_spur := obs_spur obs1 |}, b')
   end.
 
 (* Create observer network with budget *)
@@ -212,25 +212,25 @@ Definition observer_network_b (b : Budget) : (list Observer * Budget) :=
       match b1 with
       | fz => ([{| sensitivity := fs fz;
                     obs_budget := b1;
-                    obs_heat := fz |}], fz)
+                    obs_spur := fz |}], fz)
       | fs b2 =>
           match b2 with
           | fz => ([{| sensitivity := fs fz;
                         obs_budget := b1;
-                        obs_heat := fz |};
+                        obs_spur := fz |};
                     {| sensitivity := fs (fs (fs fz));
                         obs_budget := b1;
-                        obs_heat := fz |}], fz)
+                        obs_spur := fz |}], fz)
           | fs b3 =>
               ([{| sensitivity := fs fz;
                     obs_budget := b1;
-                    obs_heat := fz |};
+                    obs_spur := fz |};
                 {| sensitivity := fs (fs (fs fz));
                     obs_budget := b1;
-                    obs_heat := fz |};
+                    obs_spur := fz |};
                 {| sensitivity := five;
                     obs_budget := b1;
-                    obs_heat := fz |}], b3)
+                    obs_spur := fz |}], b3)
           end
       end
   end.

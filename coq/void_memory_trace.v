@@ -19,10 +19,15 @@ Import Void_Probability_Minimal.
 Import Void_Arithmetic.
 Import Void_Time_Memory_Composition.
 
-(******************************************************************************)
-(* BUDGET-AWARE TYPES                                                         *)
-(******************************************************************************)
-
+(* Pure decay: reduce strength without budget *)
+Definition decay_trace (mt : MemoryTrace) : MemoryTrace :=
+  let (n, d) := strength mt in
+  let new_strength := match n with
+                      | fs (fs n') => (fs n', d)
+                      | _ => (n, d)
+                      end in
+  {| remembered_tick := remembered_tick mt;
+     strength := new_strength |}.
 
 (******************************************************************************)
 (* BUDGET-AWARE TYPES                                                         *)
@@ -215,8 +220,11 @@ Definition pattern_leaves_trace_b (ms : MemorySurfer)
       let str := pattern_strength (surfer_pattern ms) in
       let t := Tick (loc, fs fz) (loc, fz) in
       let new_trace := Build_MemoryTrace t str in
-      {| bank := store_observation (bank bbank) t;
-         bank_budget := b' |}
+      match write_store_observation (bank bbank) new_trace b' with
+      | (new_bank, b'', _) =>
+          {| bank := new_bank;
+             bank_budget := b'' |}
+      end
   end.
 
 (******************************************************************************)

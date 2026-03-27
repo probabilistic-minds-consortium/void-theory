@@ -40,7 +40,7 @@ Definition operation_cost : Fin := fs fz.
 Record ConvergenceMetrics := {
   efficiency_history : list FinProb;   (* Refund ratios over time *)
   budget_history : list Budget;        (* Total budget over time *)
-  heat_history : list Heat;            (* Accumulated heat over time *)
+  spur_history : list Spuren;            (* Accumulated Spuren over time *)
   resolution : Fin                     (* Resolution for prob operations *)
 }.
 
@@ -105,14 +105,14 @@ Definition budget_stable (metrics : ConvergenceMetrics) (b : Budget)
   end.
 
 (******************************************************************************)
-(* HEAT MONOTONICITY - Heat should always increase                           *)
+(* SPUR MONOTONICITY - Spuren should always increase                           *)
 (******************************************************************************)
 
-(* Verify heat is monotonically increasing - sanity check *)
+(* Verify Spuren is monotonically increasing - sanity check *)
 (* SAFE: Pattern matching on list, le_fin_b operates Fin -> Fin *)
-Definition heat_increasing (metrics : ConvergenceMetrics) (b : Budget)
+Definition spur_increasing (metrics : ConvergenceMetrics) (b : Budget)
   : (bool * Budget) :=
-  match heat_history metrics with
+  match spur_history metrics with
   | [] => (true, b)  (* Vacuously true *)
   | [_] => (true, b)  (* Single point - no trend *)
   | h_recent :: h_prev :: _ =>
@@ -140,8 +140,8 @@ Definition has_converged (metrics : ConvergenceMetrics)
           match budget_stable metrics b1 with
           | (false, b2) => (false, b2)  (* Budget not stable *)
           | (true, b2) =>
-              (* Both stable - verify heat monotonicity as sanity check *)
-              heat_increasing metrics b2
+              (* Both stable - verify Spuren monotonicity as sanity check *)
+              spur_increasing metrics b2
           end
       end
   end.
@@ -181,7 +181,7 @@ Definition add_efficiency (metrics : ConvergenceMetrics) (new_eff : FinProb)
   : ConvergenceMetrics :=
   {| efficiency_history := new_eff :: efficiency_history metrics;
      budget_history := budget_history metrics;
-     heat_history := heat_history metrics;
+     spur_history := spur_history metrics;
      resolution := resolution metrics |}.
 
 (* Add new budget measurement to history *)
@@ -190,16 +190,16 @@ Definition add_budget (metrics : ConvergenceMetrics) (new_budget : Budget)
   : ConvergenceMetrics :=
   {| efficiency_history := efficiency_history metrics;
      budget_history := new_budget :: budget_history metrics;
-     heat_history := heat_history metrics;
+     spur_history := spur_history metrics;
      resolution := resolution metrics |}.
 
-(* Add new heat measurement to history *)
+(* Add new Spuren measurement to history *)
 (* SAFE: cons operator, pure list construction *)
-Definition add_heat_measurement (metrics : ConvergenceMetrics) (new_heat : Heat)
+Definition add_spur_measurement (metrics : ConvergenceMetrics) (new_spur : Spuren)
   : ConvergenceMetrics :=
   {| efficiency_history := efficiency_history metrics;
      budget_history := budget_history metrics;
-     heat_history := new_heat :: heat_history metrics;
+     spur_history := new_spur :: spur_history metrics;
      resolution := resolution metrics |}.
 
 (* Update all metrics at once - typical usage *)
@@ -207,11 +207,11 @@ Definition add_heat_measurement (metrics : ConvergenceMetrics) (new_heat : Heat)
 Definition update_metrics (metrics : ConvergenceMetrics)
                          (new_eff : FinProb)
                          (new_budget : Budget)
-                         (new_heat : Heat)
+                         (new_spur : Spuren)
   : ConvergenceMetrics :=
   {| efficiency_history := new_eff :: efficiency_history metrics;
      budget_history := new_budget :: budget_history metrics;
-     heat_history := new_heat :: heat_history metrics;
+     spur_history := new_spur :: spur_history metrics;
      resolution := resolution metrics |}.
 
 (******************************************************************************)
@@ -228,7 +228,7 @@ Definition extract_efficiency (result : CreditResult) : FinProb :=
 Definition initial_metrics (rho : Fin) : ConvergenceMetrics :=
   {| efficiency_history := [];
      budget_history := [];
-     heat_history := [];
+     spur_history := [];
      resolution := rho |}.
 
 (* Update metrics from learning state *)
@@ -239,8 +239,8 @@ Definition metrics_from_learning_state (metrics : ConvergenceMetrics)
   : ConvergenceMetrics :=
   let new_eff := extract_efficiency result in
   let new_budget := total_budget state in
-  let new_heat := total_heat state in
-  update_metrics metrics new_eff new_budget new_heat.
+  let new_spur := total_spur state in
+  update_metrics metrics new_eff new_budget new_spur.
 
 (******************************************************************************)
 (* LEARNING LOOP INTEGRATION                                                 *)
@@ -323,7 +323,7 @@ End Void_Convergence.
 (* This module detects when learning has reached equilibrium by checking:    *)
 (*                                                                            *)
 (* 1. EFFICIENCY PLATEAU                                                      *)
-(*    When the ratio of refunded to dissipated heat stops changing,          *)
+(*    When the ratio of refunded to dissipated Spuren stops changing,          *)
 (*    predictions aren't getting better. The model has extracted all          *)
 (*    learnable structure from available data given current budget.           *)
 (*                                                                            *)
@@ -332,9 +332,9 @@ End Void_Convergence.
 (*    reached steady state. The system knows which patterns are worth         *)
 (*    maintaining and which should decay.                                     *)
 (*                                                                            *)
-(* 3. HEAT MONOTONICITY                                                       *)
-(*    Heat always increases (second law). Stable efficiency with rising       *)
-(*    heat means you're burning energy without learning. Time to stop.        *)
+(* 3. SPUR MONOTONICITY                                                       *)
+(*    Spuren always increases (second law). Stable efficiency with rising       *)
+(*    Spuren means you're burning energy without learning. Time to stop.        *)
 (*                                                                            *)
 (* CONVERGENCE ≠ OPTIMALITY                                                   *)
 (* The system converges when it can't learn more given current resources,     *)

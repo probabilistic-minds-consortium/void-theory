@@ -21,6 +21,13 @@ Open Scope list_scope.
 (* Missing helper definitions *)
 Definition ten : Fin := fs (fs (fs (fs (fs (fs (fs (fs (fs (fs fz))))))))).
 
+(* Decay: reduce numerator by 1, preserving probability structure *)
+Definition decay (p : FinProb) : FinProb :=
+  match p with
+  | (fs (fs n), d) => (fs n, d)
+  | other => other
+  end.
+
 (* Non-budgeted equality for compatibility *)
 Definition fin_eq (n m : Fin) : bool :=
   fst (fin_eq_b n m initial_budget).

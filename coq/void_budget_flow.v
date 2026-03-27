@@ -197,7 +197,7 @@ Definition mutual_aid_b (n1 n2 : Neuron) (b : Budget)
                    refractory := fz;  (* Clear refractory *)
                    maintained_patterns := maintained_patterns n2;
                    neuron_budget := neuron_budget n2;
-                   neuron_heat := neuron_heat n2 |}), b')  (* Preserve heat *)
+                   neuron_spur := neuron_spur n2 |}), b')  (* Preserve Spuren *)
       | fs _, fz =>
           (* n1 needs help *)
           (({| neuron_id := neuron_id n1;
@@ -206,7 +206,7 @@ Definition mutual_aid_b (n1 n2 : Neuron) (b : Budget)
                refractory := fz;
                maintained_patterns := maintained_patterns n1;
                neuron_budget := neuron_budget n1;
-               neuron_heat := neuron_heat n1 |}, n2), b')  (* Preserve heat *)
+               neuron_spur := neuron_spur n1 |}, n2), b')  (* Preserve Spuren *)
       | _, _ => ((n1, n2), b')  (* Both same state *)
       end
   end.
@@ -229,7 +229,7 @@ Definition adapt_neuron_to_patterns_b (n : Neuron)
               refractory := refractory n;
               maintained_patterns := maintained_patterns n;
               neuron_budget := neuron_budget n;
-              neuron_heat := neuron_heat n |}, b')  (* Preserve heat *)
+              neuron_spur := neuron_spur n |}, b')  (* Preserve Spuren *)
       end
   end.
 
@@ -270,7 +270,7 @@ Definition diversity_bonus_b (bl : BudgetedLayer) (gift : Budget)
                            refractory := fz;  (* Clear refractory *)
                            maintained_patterns := maintained_patterns n;
                            neuron_budget := neuron_budget n;
-                           neuron_heat := neuron_heat n |} in  (* Preserve heat *)
+                           neuron_spur := neuron_spur n |} in  (* Preserve Spuren *)
           {| layer := {| layer_id := layer_id (layer bl);
                         neurons := updated :: rest;
                         input_patterns := input_patterns (layer bl);

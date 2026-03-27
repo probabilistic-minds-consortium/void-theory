@@ -100,26 +100,26 @@ Definition error_acceptable_b (error : Fin) (threshold : FinProb) (b : Budget)
 
 Fixpoint find_matching_orbit_helper (p : Pattern) (orbits : list PhaseOrbit)
                                      (best : option PhaseOrbit) (best_error : Fin)
-                                     (fuel : Fin) (b : Budget) (acc_heat : Heat)
-  : (option PhaseOrbit * Fin * Budget * Heat) :=
+                                     (fuel : Fin) (b : Budget) (acc_spur : Spuren)
+  : (option PhaseOrbit * Fin * Budget * Spuren) :=
   match fuel with
-  | fz => (best, best_error, b, acc_heat)
+  | fz => (best, best_error, b, acc_spur)
   | fs fuel' =>
       match orbits with
-      | [] => (best, best_error, b, acc_heat)
+      | [] => (best, best_error, b, acc_spur)
       | orbit :: rest =>
           match b with
-          | fz => (best, best_error, fz, acc_heat)
+          | fz => (best, best_error, fz, acc_spur)
           | fs b' =>
               match prediction_error_b (location p) orbit b' with
               | (error, b1) =>
                   match le_fin_b error best_error b1 with
                   | (true, b2) =>
                       find_matching_orbit_helper p rest (Some orbit) error 
-                                                  fuel' b2 (add_heat acc_heat operation_cost)
+                                                  fuel' b2 (add_spur acc_spur operation_cost)
                   | (false, b2) =>
                       find_matching_orbit_helper p rest best best_error 
-                                                  fuel' b2 (add_heat acc_heat operation_cost)
+                                                  fuel' b2 (add_spur acc_spur operation_cost)
                   end
               end
           end
@@ -128,7 +128,7 @@ Fixpoint find_matching_orbit_helper (p : Pattern) (orbits : list PhaseOrbit)
 
 Definition find_matching_orbit (p : Pattern) (orbits : list PhaseOrbit) 
                                (fuel : Fin) (b : Budget)
-  : (option PhaseOrbit * Fin * Budget * Heat) :=
+  : (option PhaseOrbit * Fin * Budget * Spuren) :=
   let max_error := fuel in
   find_matching_orbit_helper p orbits None max_error fuel b fz.
 
@@ -137,16 +137,16 @@ Definition find_matching_orbit (p : Pattern) (orbits : list PhaseOrbit)
 (******************************************************************************)
 
 Definition system1_advance_b (p : Pattern) (orbit : PhaseOrbit) (b : Budget)
-  : (Pattern * PhaseOrbit * Budget * Heat) :=
+  : (Pattern * PhaseOrbit * Budget * Spuren) :=
   match b with
   | fz => (p, orbit, fz, fz)
   | fs b' =>
       match write_advance_phase orbit b' with
-      | (new_orbit, b1, heat) =>
+      | (new_orbit, b1, sp) =>
           let new_location := read_orbit_position (orbit_points new_orbit) (phase new_orbit) in
           let new_pattern := {| location := new_location; 
                                 strength := strength p |} in
-          (new_pattern, new_orbit, b1, heat)
+          (new_pattern, new_orbit, b1, sp)
       end
   end.
 
@@ -162,7 +162,7 @@ Fixpoint sub_fin_saturate (a b : Fin) : Fin :=
   end.
 
 Definition system2_navigate_b (p : Pattern) (field : InterferenceField) (b : Budget)
-  : (Pattern * InterferenceField * Budget * Heat) :=
+  : (Pattern * InterferenceField * Budget * Spuren) :=
   match b with
   | fz => (p, field, fz, fz)
   | fs b' =>
@@ -172,8 +172,8 @@ Definition system2_navigate_b (p : Pattern) (field : InterferenceField) (b : Bud
       let result_surfer := surf_interference_b surfer field in
       let new_pattern := surfer_pattern result_surfer in
       let remaining_budget := surf_budget result_surfer in
-      let heat := sub_fin_saturate b' remaining_budget in
-      (new_pattern, field, remaining_budget, heat)
+      let sp := sub_fin_saturate b' remaining_budget in
+      (new_pattern, field, remaining_budget, sp)
   end.
 
 (******************************************************************************)
@@ -209,10 +209,10 @@ Definition replace_first_orbit (orbits : list PhaseOrbit) (new_orbit : PhaseOrbi
   end.
 
 Definition try_system2 (p : Pattern) (state : CognitiveState) 
-                       (b : Budget) (prior_heat : Heat)
-  : (Pattern * CognitiveState * Budget * Heat) :=
+                       (b : Budget) (prior_spur : Spuren)
+  : (Pattern * CognitiveState * Budget * Spuren) :=
   match b with
-  | fz => (p, state, fz, prior_heat)
+  | fz => (p, state, fz, prior_spur)
   | fs b' =>
       match spend_budget (switching_cost state) (fs b') with
       | (spent, remaining) =>
@@ -220,18 +220,18 @@ Definition try_system2 (p : Pattern) (state : CognitiveState)
           match could_afford spent (switching_cost state) remaining with
           | (false, b1) =>
               (* Could not afford switching cost - freeze *)
-              (p, state, b1, prior_heat)
+              (p, state, b1, prior_spur)
           | (true, b1) =>
               match b1 with
-              | fz => (p, state, fz, prior_heat)
+              | fz => (p, state, fz, prior_spur)
               | fs r' =>
                   match system2_navigate_b p (interference_field state) b1 with
-                  | (new_pattern, new_field, b2, nav_heat) =>
+                  | (new_pattern, new_field, b2, nav_spur) =>
                       let new_state := {| active_orbits := active_orbits state;
                                           interference_field := new_field;
                                           confidence_threshold := confidence_threshold state;
                                           switching_cost := switching_cost state |} in
-                      (new_pattern, new_state, b2, add_heat prior_heat nav_heat)
+                      (new_pattern, new_state, b2, add_spur prior_spur nav_spur)
                   end
               end
           end
@@ -240,29 +240,29 @@ Definition try_system2 (p : Pattern) (state : CognitiveState)
 
 Definition cognitive_router (p : Pattern) (state : CognitiveState) 
                             (fuel : Fin) (b : Budget)
-  : (Pattern * CognitiveState * Budget * Heat) :=
+  : (Pattern * CognitiveState * Budget * Spuren) :=
   match b with
   | fz => (p, state, fz, fz)
   | fs b' =>
       match find_matching_orbit p (active_orbits state) fuel b' with
-      | (None, _, b1, search_heat) =>
-          try_system2 p state b1 search_heat
+      | (None, _, b1, search_spur) =>
+          try_system2 p state b1 search_spur
           
-      | (Some orbit, error, b1, search_heat) =>
+      | (Some orbit, error, b1, search_spur) =>
           match error_acceptable_b error (confidence_threshold state) b1 with
           | (true, b2) =>
               match system1_advance_b p orbit b2 with
-              | (new_pattern, new_orbit, b3, advance_heat) =>
+              | (new_pattern, new_orbit, b3, advance_spur) =>
                   let new_orbits := replace_first_orbit (active_orbits state) new_orbit in
                   let new_state := {| active_orbits := new_orbits;
                                       interference_field := interference_field state;
                                       confidence_threshold := confidence_threshold state;
                                       switching_cost := switching_cost state |} in
-                  (new_pattern, new_state, b3, add_heat search_heat advance_heat)
+                  (new_pattern, new_state, b3, add_spur search_spur advance_spur)
               end
               
           | (false, b2) =>
-              try_system2 p state b2 search_heat
+              try_system2 p state b2 search_spur
           end
       end
   end.
@@ -278,7 +278,7 @@ Fixpoint list_length_fin {A : Type} (l : list A) : Fin :=
   end.
 
 Definition learn_orbit_b (trajectory : list Fin) (state : CognitiveState) (b : Budget)
-  : (CognitiveState * Budget * Heat) :=
+  : (CognitiveState * Budget * Spuren) :=
   match b with
   | fz => (state, fz, fz)
   | fs b' =>
@@ -340,22 +340,22 @@ Definition adjust_confidence_failure_b (state : CognitiveState) (b : Budget)
 (******************************************************************************)
 
 Fixpoint route_batch_b (patterns : list Pattern) (state : CognitiveState)
-                        (fuel : Fin) (b : Budget) (acc_heat : Heat)
-  : (list Pattern * CognitiveState * Budget * Heat) :=
+                        (fuel : Fin) (b : Budget) (acc_spur : Spuren)
+  : (list Pattern * CognitiveState * Budget * Spuren) :=
   match fuel with
-  | fz => ([], state, b, acc_heat)
+  | fz => ([], state, b, acc_spur)
   | fs fuel' =>
       match patterns with
-      | [] => ([], state, b, acc_heat)
+      | [] => ([], state, b, acc_spur)
       | p :: rest =>
           match b with
-          | fz => ([], state, fz, acc_heat)
+          | fz => ([], state, fz, acc_spur)
           | fs b' =>
               match cognitive_router p state fuel' b' with
-              | (routed_p, new_state, b1, heat) =>
-                  match route_batch_b rest new_state fuel' b1 (add_heat acc_heat heat) with
-                  | (routed_rest, final_state, b2, total_heat) =>
-                      (routed_p :: routed_rest, final_state, b2, total_heat)
+              | (routed_p, new_state, b1, sp) =>
+                  match route_batch_b rest new_state fuel' b1 (add_spur acc_spur sp) with
+                  | (routed_rest, final_state, b2, total_spur) =>
+                      (routed_p :: routed_rest, final_state, b2, total_spur)
                   end
               end
           end
@@ -388,7 +388,7 @@ Definition init_cognitive_state_ext := init_cognitive_state.
 (* - Active problem-solving through pattern navigation                       *)
 (* - Many ticks to complete: thermodynamically expensive                     *)
 (* - Adaptive: finds new solutions in interference field                     *)
-(* - Succeeds on novelty: but costs budget and generates heat                *)
+(* - Succeeds on novelty: but costs budget and generates Spuren                *)
 (*                                                                            *)
 (* THE SWITCH:                                                                *)
 (* - Switching itself costs: engaging deliberation is not free              *)

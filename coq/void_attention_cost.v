@@ -54,7 +54,7 @@ Definition operation_cost : Fin := fs fz.
 Record MaintenanceState := {
   maintained_traces : list MemoryTrace;  (* What we're keeping alive *)
   maintenance_budget : Budget;           (* Available energy *)
-  maintenance_heat : Heat;               (* Accumulated cost *)
+  maintenance_spur : Spuren;               (* Accumulated cost *)
   maintenance_tick : Fin                 (* Time counter - NOT NAT *)
 }.
 
@@ -136,7 +136,7 @@ Definition apply_maintenance_tick (state : MaintenanceState)
   | fz => 
       {| maintained_traces := [];
          maintenance_budget := fz;
-         maintenance_heat := maintenance_heat state;
+         maintenance_spur := maintenance_spur state;
          maintenance_tick := maintenance_tick state |}
   | fs b' =>
       (* SAFE: count_traces returns Fin *)
@@ -154,7 +154,7 @@ Definition apply_maintenance_tick (state : MaintenanceState)
                   | (b_new, _) =>
                       {| maintained_traces := maintained_traces state;
                          maintenance_budget := b_new;
-                         maintenance_heat := add_heat (maintenance_heat state) cost;
+                         maintenance_spur := add_spur (maintenance_spur state) cost;
                          maintenance_tick := maintenance_tick state |}
                   end
               | (false, b3) =>
@@ -163,12 +163,12 @@ Definition apply_maintenance_tick (state : MaintenanceState)
                   | [] => 
                       {| maintained_traces := [];
                          maintenance_budget := b3;
-                         maintenance_heat := maintenance_heat state;
+                         maintenance_spur := maintenance_spur state;
                          maintenance_tick := maintenance_tick state |}
                   | _ :: rest =>
                       {| maintained_traces := rest;
                          maintenance_budget := b3;
-                         maintenance_heat := add_heat (maintenance_heat state) 
+                         maintenance_spur := add_spur (maintenance_spur state) 
                                                      operation_cost;
                          maintenance_tick := maintenance_tick state |}
                   end
@@ -187,7 +187,7 @@ Definition attention_emergency_trim (state : MaintenanceState)
   | fz => 
       {| maintained_traces := [];
          maintenance_budget := fz;
-         maintenance_heat := maintenance_heat state;
+         maintenance_spur := maintenance_spur state;
          maintenance_tick := maintenance_tick state |}
   | fs b' =>
       (* SAFE: count_traces returns Fin *)
@@ -202,7 +202,7 @@ Definition attention_emergency_trim (state : MaintenanceState)
               | (half_traces, b3) =>
                   {| maintained_traces := half_traces;
                      maintenance_budget := b3;
-                     maintenance_heat := add_heat (maintenance_heat state) 
+                     maintenance_spur := add_spur (maintenance_spur state) 
                                                   operation_cost;
                      maintenance_tick := maintenance_tick state |}
               end
@@ -232,7 +232,7 @@ Definition from_memory_state (mem_state : MemoryState)
   : MaintenanceState :=
   {| maintained_traces := traces mem_state;
      maintenance_budget := memory_budget mem_state;
-     maintenance_heat := accumulated_heat mem_state;
+     maintenance_spur := accumulated_spur mem_state;
      maintenance_tick := current_tick mem_state |}.
 
 (* SAFE: Pure record construction *)
@@ -241,7 +241,7 @@ Definition to_memory_state (maint_state : MaintenanceState)
   {| traces := maintained_traces maint_state;
      current_tick := maintenance_tick maint_state;
      memory_budget := maintenance_budget maint_state;
-     accumulated_heat := maintenance_heat maint_state |}.
+     accumulated_spur := maintenance_spur maint_state |}.
 
 (* SAFE: Composition of functions that operate on records *)
 Definition maintenance_then_temporal (state : MemoryState)
@@ -298,7 +298,7 @@ Definition reduce_resolution (state : MaintenanceState)
   | fs tick' =>
       {| maintained_traces := maintained_traces state;
          maintenance_budget := maintenance_budget state;
-         maintenance_heat := add_heat (maintenance_heat state) operation_cost;
+         maintenance_spur := add_spur (maintenance_spur state) operation_cost;
          maintenance_tick := tick' |}
   end.
 
