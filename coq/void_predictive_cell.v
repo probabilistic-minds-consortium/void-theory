@@ -54,7 +54,7 @@ Record PredictiveCell := mkPredCell {
 (*                                                                            *)
 (* BTrue inputs activate weights_for. BFalse activates weights_against.      *)
 (* BUnknown activates neither — honest silence.                              *)
-(* Non-matching inputs are READ (free). Matching = WRITE (costs budget).     *)
+(* Non-matching inputs use ReadOperation (structural). Matching = WriteOperation (costs budget). Note: in void-theory, read IS write — both cost budget at the physical level. *)
 (******************************************************************************)
 
 Fixpoint accumulate_for (inputs : list Bool3) (ws : list Fin)

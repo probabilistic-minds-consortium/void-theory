@@ -380,7 +380,7 @@ Definition init_cognitive_state_ext := init_cognitive_state.
 (*                                                                            *)
 (* SYSTEM 1 (Orbits):                                                         *)
 (* - Cached solutions from past experience                                   *)
-(* - One tick to advance: nearly free                                        *)
+(* - One tick to advance: cheap but not free                                  *)
 (* - Deterministic: same orbit, same trajectory                              *)
 (* - Fails on novelty: orbit mismatch triggers System 2                      *)
 (*                                                                            *)

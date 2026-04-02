@@ -108,7 +108,7 @@ Instance spur_threshold_read : ReadOperation Budget Fin := {
 (* HELPER OPERATIONS WITH BUDGET                                             *)
 (******************************************************************************)
 
-(* Boolean operations - free as structural *)
+(* Boolean operations - structural *)
 Definition andb (b1 b2 : bool) : bool :=
   match b1 with
   | true => b2

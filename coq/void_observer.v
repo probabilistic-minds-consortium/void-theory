@@ -753,7 +753,7 @@ Axiom finite_recurrence : forall (trajectory : Trajectory) (n_steps n_states : F
 (******************************************************************************)
 (* XVI. ATTENTION-AS-BUDGET — Every Token Has a Price                        *)
 (*                                                                           *)
-(* In a transformer, attention is free. In VOID, nothing is free.           *)
+(* In a transformer, attention is assumed free. In VOID, nothing is free.   *)
 (* Each token in the context window costs budget to attend to.              *)
 (* Far tokens cost more. Or they cost the same but you can afford fewer.    *)
 (* Either way: attention is a complementary resource (Bohr, section X).     *)

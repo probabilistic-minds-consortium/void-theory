@@ -53,7 +53,7 @@ Record EntropyWell := {
 (* READ OPERATIONS - Access existing entropy structure                        *)
 (******************************************************************************)
 
-(* Read pattern's tunneling history - FREE *)
+(* Read pattern's tunneling history - structural *)
 Definition read_tunnel_history (tp : TunnelingPattern) : list Fin :=
   tunnel_history tp.
 
@@ -61,7 +61,7 @@ Instance tunnel_history_read : ReadOperation TunnelingPattern (list Fin) := {
   read_op := read_tunnel_history
 }.
 
-(* Read if pattern has budget - FREE *)
+(* Read if pattern has budget - structural *)
 Definition read_can_tunnel (tp : TunnelingPattern) : bool :=
   match tunnel_budget tp with
   | fz => false
@@ -72,7 +72,7 @@ Instance can_tunnel_read : ReadOperation TunnelingPattern bool := {
   read_op := read_can_tunnel
 }.
 
-(* Read well properties - FREE *)
+(* Read well properties - structural *)
 Definition read_well_center (w : EntropyWell) : Fin :=
   well_center w.
 

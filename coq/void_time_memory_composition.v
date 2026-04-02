@@ -86,7 +86,7 @@ Definition tl {A : Type} := @List.tl A.
 (* READ OPERATIONS - Access existing time/memory structure                    *)
 (******************************************************************************)
 
-(* Read observer resolution - FREE *)
+(* Read observer resolution - structural *)
 Definition read_resolution (o : Observer) : FinProb :=
   resolution o.
 
@@ -94,7 +94,7 @@ Instance resolution_read : ReadOperation Observer FinProb := {
   read_op := read_resolution
 }.
 
-(* Read if observer can observe - FREE *)
+(* Read if observer can observe - structural *)
 Definition read_can_observe (o : Observer) : bool :=
   match obs_budget o with
   | fz => false
@@ -105,7 +105,7 @@ Instance can_observe_read : ReadOperation Observer bool := {
   read_op := read_can_observe
 }.
 
-(* Read memory trace strength - FREE *)
+(* Read memory trace strength - structural *)
 Definition read_trace_strength (mt : MemoryTrace) : FinProb :=
   strength mt.
 
@@ -113,7 +113,7 @@ Instance trace_strength_read : ReadOperation MemoryTrace FinProb := {
   read_op := read_trace_strength
 }.
 
-(* Check if trace is forgotten - FREE *)
+(* Check if trace is forgotten - structural *)
 Definition read_trace_forgotten (mt : MemoryTrace) : bool :=
   match strength mt with
   | (fz, _) => true
@@ -124,7 +124,7 @@ Instance trace_forgotten_read : ReadOperation MemoryTrace bool := {
   read_op := read_trace_forgotten
 }.
 
-(* Count memory traces - FREE *)
+(* Count memory traces - structural *)
 Fixpoint read_memory_count (traces : list MemoryTrace) : Fin :=
   match traces with
   | [] => fz

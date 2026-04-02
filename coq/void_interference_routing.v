@@ -56,7 +56,7 @@ Record WavePacket := {
 (* HELPER OPERATIONS WITH BUDGET                                             *)
 (******************************************************************************)
 
-(* Boolean operations - free as structural *)
+(* Boolean operations - structural *)
 Definition andb (b1 b2 : bool) : bool :=
   match b1 with
   | true => b2

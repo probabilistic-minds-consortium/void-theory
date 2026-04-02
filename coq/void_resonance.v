@@ -58,7 +58,7 @@ Record ResonantPattern := {
 (* READ OPERATIONS - Access existing resonance structure                      *)
 (******************************************************************************)
 
-(* Read location frequency - FREE *)
+(* Read location frequency - structural *)
 Definition read_frequency (loc : ResonantLocation) : FinProb :=
   base_frequency loc.
 
@@ -66,7 +66,7 @@ Instance frequency_read : ReadOperation ResonantLocation FinProb := {
   read_op := read_frequency
 }.
 
-(* Read current amplitude - FREE *)
+(* Read current amplitude - structural *)
 Definition read_amplitude (loc : ResonantLocation) : FinProb :=
   current_amplitude loc.
 
@@ -74,7 +74,7 @@ Instance amplitude_read : ReadOperation ResonantLocation FinProb := {
   read_op := read_amplitude
 }.
 
-(* Read damping factor - FREE *)
+(* Read damping factor - structural *)
 Definition read_damping (loc : ResonantLocation) : Fin :=
   damping loc.
 
@@ -82,7 +82,7 @@ Instance damping_read : ReadOperation ResonantLocation Fin := {
   read_op := read_damping
 }.
 
-(* Check if pattern budget is exhausted - FREE *)
+(* Check if pattern budget is exhausted - structural *)
 Definition read_pattern_exhausted (rp : ResonantPattern) : bool :=
   match resonance_budget rp with
   | fz => true

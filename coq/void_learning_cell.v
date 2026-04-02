@@ -76,7 +76,7 @@ Definition activate (cell : LearningCell) (input : FinProb)
 (* (fs fz, d) -> unchanged          BOUNDARY: 1/d is minimum               *)
 (* (fz, d) -> unchanged             guard: already invalid                  *)
 (*                                                                          *)
-(* Lower boundary check is structural - free. One tick for the operation.   *)
+(* Lower boundary check is structural. One tick for the operation.            *)
 (******************************************************************************)
 
 Definition erode_threshold (cell : LearningCell) : LearningCell :=

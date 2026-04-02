@@ -56,7 +56,7 @@ Record OrbitalSystem := {
 (* READ OPERATIONS - Access existing orbital structure                        *)
 (******************************************************************************)
 
-(* Read current phase - FREE *)
+(* Read current phase - structural *)
 Definition read_phase (orbit : PhaseOrbit) : Fin :=
   phase orbit.
 
@@ -64,7 +64,7 @@ Instance phase_read : ReadOperation PhaseOrbit Fin := {
   read_op := read_phase
 }.
 
-(* Read orbit period - FREE *)
+(* Read orbit period - structural *)
 Definition read_period (orbit : PhaseOrbit) : Fin :=
   period orbit.
 
@@ -72,7 +72,7 @@ Instance period_read : ReadOperation PhaseOrbit Fin := {
   read_op := read_period
 }.
 
-(* Read stability - FREE *)
+(* Read stability - structural *)
 Definition read_stability (orbit : PhaseOrbit) : FinProb :=
   stability orbit.
 
@@ -80,7 +80,7 @@ Instance stability_read : ReadOperation PhaseOrbit FinProb := {
   read_op := read_stability
 }.
 
-(* Check if orbit is stable - FREE *)
+(* Check if orbit is stable - structural *)
 Definition read_is_stable (orbit : PhaseOrbit) : bool :=
   match stability orbit with
   | (n, d) => negb (fin_eq n fz)  (* Stable if numerator non-zero *)
@@ -90,7 +90,7 @@ Instance is_stable_read : ReadOperation PhaseOrbit bool := {
   read_op := read_is_stable
 }.
 
-(* Get orbit position at phase - FREE *)
+(* Get orbit position at phase - structural *)
 Fixpoint read_orbit_position (points : list Fin) (phase : Fin) : Fin :=
   match points, phase with
   | [], _ => fz

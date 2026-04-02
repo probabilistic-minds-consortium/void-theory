@@ -144,6 +144,8 @@ Definition is_recurrence (attr : option Attractor) (threshold : Fin) (b : Budget
 (* We state this as axiom because proving it requires decidable equality    *)
 (* on HiddenState under budget — a construction that would itself cost      *)
 (* budget. The STRUCTURE matters: finite space + enough steps = return.     *)
+(* NOTE: Duplicate of Void_Observer.finite_recurrence. Retained locally     *)
+(* for module scoping. See void_observer.v line 748 for original.           *)
 Axiom finite_recurrence : forall (trajectory : Trajectory) (n_steps n_states : Fin),
   leF n_states n_steps ->
   n_states <> fz ->
@@ -152,7 +154,7 @@ Axiom finite_recurrence : forall (trajectory : Trajectory) (n_steps n_states : F
 (******************************************************************************)
 (* XVI. ATTENTION-AS-BUDGET — Every Token Has a Price                        *)
 (*                                                                           *)
-(* In a transformer, attention is free. In VOID, nothing is free.           *)
+(* In a transformer, attention is assumed free. In VOID, nothing is free.   *)
 (* Each token in the context window costs budget to attend to.              *)
 (* Far tokens cost more. Or they cost the same but you can afford fewer.    *)
 (* Either way: attention is a complementary resource (Bohr, section X).     *)

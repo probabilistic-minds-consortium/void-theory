@@ -486,23 +486,30 @@ Proof. simpl. discriminate. Qed.
 
 (* --- Information theory: the READ/WRITE boundary as observer dependence --- *)
 
-(* READ is free: no budget required, always sees the same thing.
-   WRITE costs budget: what you can write depends on what you have.
-   The boundary between read and write IS observer dependence at
-   the level of information theory. *)
+(* HISTORICAL NOTE (2026-04-03):                                              *)
+(* This section originally claimed READ is free and WRITE costs budget.       *)
+(* void_probability_geometry.v Section XV proves this false:                  *)
+(*   - write_asymmetry: every observation is atomic read+write               *)
+(*   - no_free_lunch_le: every comparison with nonzero budget costs nonzero  *)
+(* READ IS WRITE. The definitions below are retained for backward            *)
+(* compatibility but the ontological claim is superseded.                     *)
 
+(* WriteOperation explicitly tracks budget cost *)
 Definition write_requires_budget :
   forall A B (w : Void_Information_Theory.WriteOperation A B),
   A -> Budget -> (B * Budget * Fin) :=
   fun A B w => @Void_Information_Theory.write_op A B w.
 
-Definition read_is_free :
+(* ReadOperation: syntactic shorthand, NOT ontologically free.               *)
+(* See void_probability_geometry.v Section XV: Read Is Write.                *)
+Definition read_syntactic :
   forall A B (r : Void_Information_Theory.ReadOperation A B),
   A -> B :=
   fun A B r => @Void_Information_Theory.read_op A B r.
 
-(* Pattern read is free: always returns the same location *)
-Example read_pattern_always_same :
+(* Structural field access is deterministic — but not free.                  *)
+(* In the physical system modeled by Fin, even this costs budget.            *)
+Example read_pattern_deterministic :
   let p := {| Void_Pattern.location := fs (fs fz);
               Void_Pattern.strength := (fs fz, fs (fs fz)) |} in
   @Void_Information_Theory.read_op _ _
@@ -548,7 +555,7 @@ Proof. simpl. reflexivity. Qed.
 (* 6. OBSERVER DEPENDENCE is the same at every level.                         *)
 (*    Rich observer sees BTrue, poor observer sees BUnknown.                   *)
 (*    Rich entropy observer sees fs fz, poor sees fz.                          *)
-(*    Read is free, write costs budget. The boundary is real.                   *)
+(*    Read is write. Both cost budget. The boundary is the observer.            *)
 (*                                                                            *)
 (* Bohr was right. Not as philosophy. As arithmetic.                          *)
 (* Not in one module. In all of them.                                         *)

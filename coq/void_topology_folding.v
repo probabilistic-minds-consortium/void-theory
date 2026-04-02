@@ -52,7 +52,7 @@ Record NetworkTopology := {
 (* READ OPERATIONS - Access existing topology structure                       *)
 (******************************************************************************)
 
-(* Read bridge endpoints - FREE *)
+(* Read bridge endpoints - structural *)
 Definition read_bridge_endpoints (br : FoldBridge) : (Fin * Fin) :=
   (end1 br, end2 br).
 
@@ -60,7 +60,7 @@ Instance bridge_endpoints_read : ReadOperation FoldBridge (Fin * Fin) := {
   read_op := read_bridge_endpoints
 }.
 
-(* Read bridge stability - FREE *)
+(* Read bridge stability - structural *)
 Definition read_bridge_stability (br : FoldBridge) : FinProb :=
   stability br.
 
@@ -68,7 +68,7 @@ Instance bridge_stability_read : ReadOperation FoldBridge FinProb := {
   read_op := read_bridge_stability
 }.
 
-(* Check if bridge exists - FREE *)
+(* Check if bridge exists - structural *)
 Definition read_bridge_exists (br : FoldBridge) : bool :=
   match stability br with
   | (fz, _) => false
@@ -79,7 +79,7 @@ Instance bridge_exists_read : ReadOperation FoldBridge bool := {
   read_op := read_bridge_exists
 }.
 
-(* Count bridges - FREE *)
+(* Count bridges - structural *)
 Fixpoint read_bridge_count (bridges : list FoldBridge) : Fin :=
   match bridges with
   | [] => fz
@@ -90,7 +90,7 @@ Instance bridge_count_read : ReadOperation (list FoldBridge) Fin := {
   read_op := read_bridge_count
 }.
 
-(* Read network curvature - FREE *)
+(* Read network curvature - structural *)
 Definition read_curvature (net : NetworkTopology) : FinProb :=
   ambient_curvature net.
 
