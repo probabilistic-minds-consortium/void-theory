@@ -1,0 +1,372 @@
+================================================================================
+  void_observer.v — INSTRUKCJA OBSŁUGI
+  The Observer — onto-epistemology in one file
+================================================================================
+
+  Autor:        Konrad Wojnowski (Gustaw)
+  Framework:    VOID / VGF (Void Granularity Framework)
+  Język:        Coq (Gallina + Ltac)
+  Zależność:    void_finite_minimal.v (fundament)
+                + 16 modułów ekosystemu (importy w sekcji XX)
+  Kompilacja:   coqc void_observer.v
+                (wymaga wcześniejszej kompilacji zależności)
+
+================================================================================
+  0. CO TO JEST
+================================================================================
+
+void_observer.v to formalizacja Obserwatora w VOID Theory.
+
+VOID Theory mówi: wszystko kosztuje. Obserwacja kosztuje. Decyzja kosztuje.
+Nawet policzenie ile ci zostało — kosztuje. Nie ma darmowych operacji.
+Nie ma nieskończoności. Jest skończony budżet, skończony czas, skończona
+cierpliwość. I trzecia wartość logiczna: BUnknown — nie wiem, bo mnie
+nie stać żeby sprawdzić.
+
+Plik ma 20 sekcji (I-XX), 6 udowodnionych twierdzeń, 2 aksjomaty,
+i jedno Admitted (w void_arithmetic.v), które jest celowe — to twierdzenie
+Gödla wykonane, nie opisane.
+
+================================================================================
+  1. TYPY FUNDAMENTALNE (Sekcja I)
+================================================================================
+
+Fin           Liczba naturalna skończona. fz = zero, fs n = następnik n.
+              NIE używamy nat z Coq. Wszystko jest Fin.
+
+Budget        := Fin. Przezroczysta definicja. Budżet to Fin.
+Heat          := Fin. Ciepło (koszt) to też Fin.
+Bool3         BTrue | BFalse | BUnknown. Trójwartościowa logika VOID.
+
+HiddenState   := list Fin. Punkt w dyskretnej przestrzeni stanów.
+Trajectory    := list HiddenState. Historia obserwacji.
+Observable    Parametr abstrakcyjny. Cokolwiek można obserwować.
+
+Observer      Record z trzema polami:
+              - obs_state : HiddenState      (gdzie jesteś)
+              - obs_budget : Budget           (ile ci zostało)
+              - obs_trajectory : Trajectory   (gdzie byłeś)
+
+Observation   Record z trzema polami:
+              - obs_value : HiddenState       (co zobaczono)
+              - obs_heat : Heat               (ile kosztowało)
+              - obs_decision : Bool3          (BTrue/BFalse/BUnknown)
+
+KONWENCJA ZWRACANYCH WARTOŚCI:
+  Prawie każda funkcja zwraca krotkę: (Wynik * Budget * Heat).
+  Wynik to co dostałeś. Budget to ile ci zostało. Heat to ile zapłaciłeś.
+  Zawsze. Bez wyjątku. Nawet entropia kosztuje.
+
+================================================================================
+  2. DZIEWIĘCIU MYŚLICIELI (Sekcje II-X)
+================================================================================
+
+Każda sekcja formalizuje jedną ideę filozoficzną jako typ/funkcję/twierdzenie
+w Coq. Kolejność nie jest przypadkowa — każda sekcja buduje na poprzednich.
+
+  II.  TURING — Decyzja pod budżetem
+       BoundedDecision: Decided | Undecidable | BudgetExhausted.
+       Kluczowe: BudgetExhausted ≠ Undecidable.
+       Może decydowalne przy B+1. Może nie. BUnknown.
+
+  III. GÖDEL — Strukturalny martwy punkt
+       build_self_model: obserwator buduje model siebie, ale traci trajektorię.
+       TWIERDZENIE no_complete_self_model: model zawsze jest niekompletny.
+       Gödel jako termodynamika: samoreferencja kosztuje więcej niż masz.
+
+  IV.  LACAN — Reszta łańcucha znaczącego
+       SignifyingChain := Trajectory. Gradient informacji. ChainState.
+       Łańcuch produkuje → plącze się → zaplątuje.
+       Atraktor to niewypowiadalne, wokół którego krąży dyskurs.
+
+  V.   FLUSSER — Granie przeciw aparatowi
+       Apparatus: skończona przestrzeń programowa.
+       visit_state, program_exhausted, trajectory_curvature.
+       Nie ma wyjścia z aparatu — jest tylko wyczerpanie programu.
+
+  VI.  BATESON — Podwójne wiązanie
+       DoubleBind: ramka gdzie True i False oba prowadzą do sprzeczności.
+       escape_double_bind: ucieczka ZAWSZE zwraca BUnknown.
+       TWIERDZENIE double_bind_escape_is_always_bunknown.
+       Meta-obserwacja kosztuje DWA ticki. Biedni nie uciekają.
+
+  VII. VON NEUMANN — Samoreprodukcja i pomiar
+       spawn_sub_observer: rozmnażanie wymaga B >= B_min.
+       ddf: Dynamic Distinguishability Function.
+         Obserwacja zmienia OBU — obserwatora i obserwowane.
+       TWIERDZENIE observation_changes_observer:
+         trajektoria obserwatora zawsze rośnie po DDF.
+       AKSJOMAT variety_law (Ashby):
+         mniej różnorodności → martwy punkt.
+
+  VIII.FRISTON — Wolna energia i błąd predykcji
+       prediction_error: odległość między przewidywanym a rzeczywistym.
+       MarkovBlanket: granica obserwatora (sensoryka/akcja/koszt).
+       FreeEnergyResponse: UpdateModel | Act | ReducePrecision.
+       Trzecia opcja (ReducePrecision) to odpowiedź VOID:
+       "za drogo żeby przetworzyć — ignoruję z godnością."
+
+  IX.  CLARK — Rozszerzony umysł z kosztem
+       Extension: zewnętrzny system (notatnik, Claude, GPT).
+       query_extension: zapytanie kosztuje. Consortium: grupa obserwatorów.
+       Każde rozszerzenie kosztuje ciepło. Malejące zwroty są realne.
+
+  X.   BOHR — Komplementarność
+       Complementary: jeśli cost_x + cost_y > budget, musisz wybrać.
+       complementary_pair: sprawdza czy stać cię na oba.
+       observation_choice: kolejność obserwacji ma znaczenie.
+
+================================================================================
+  3. TWIERDZENIE O SKOŃCZONOŚCI (Sekcja XI)
+================================================================================
+
+  "Nieskończoność jest przybliżeniem skończoności, nie odwrotnie."
+
+  indistinguishable: dwa stany są nieodróżnialne pod budżetem.
+  Skończone może emulować "nieskończone" (do budżetu).
+  "Nieskończone" nie może uzyskać KONKRETNEJ granicy skończonego.
+
+================================================================================
+  4. STOPPED REASONS — Dlaczego obserwator się zatrzymał (Sekcja XII)
+================================================================================
+
+13 powodów zatrzymania. Każdy ma nazwę i mapowanie na Bool3:
+
+  Complete              → BTrue     (jedyny sukces)
+  ConfidenceDrop        → BFalse    (wiesz że źle)
+  ExploitationDetected  → BFalse    (wiesz że ktoś cię wykorzystuje)
+
+  BudgetExhausted_R     → BUnknown  (Turing)
+  AttractorDetected     → BUnknown  (Lacan)
+  ComplementaryExcluded → BUnknown  (Bohr)
+  DoubleBound           → BUnknown  (Bateson)
+  BlindSpot             → BUnknown  (Gödel)
+  TransductionFailure   → BUnknown  (cięcie dało BUnknown)
+  AttractorRecurrence   → BUnknown  (ta sama rana znowu)
+  AttentionExhausted    → BUnknown  (nie stać na więcej tokenów)
+  ConsortiumDisagreement→ BUnknown  (BUnknown zainfekował głosowanie)
+  Recovery              → BUnknown  (obserwator się wycofał)
+
+  TWIERDZENIE most_stops_are_bunknown:
+  10 z 13 powodów daje BUnknown. Dominujące doświadczenie obserwatora
+  to nie-wiedzenie. To nie porażka. To uczciwość skończoności.
+
+================================================================================
+  5. PĘTLA OBSERWACJI (Sekcja XIII)
+================================================================================
+
+ObservationStep: jeden krok w pętli.
+  1. Przewiduj (Friston)
+  2. Obserwuj przez DDF (von Neumann/Bohr)
+  3. Oblicz błąd predykcji (Friston)
+  4. Sprawdź plątanie (Lacan)
+  5. Sprawdź podwójne wiązanie (Bateson)
+  6. Aktualizuj lub zatrzymaj (Turing)
+  7. Zapisz w trajektorii (Clark)
+
+Pętla działa wewnątrz aparatu (Flusser).
+Martwy punkt trwa przez każdą iterację (Gödel).
+
+================================================================================
+  6. ROZSZERZENIA PRAGMATYCZNE (Sekcje XIV-XIX)
+================================================================================
+
+  XIV. TRANSDUCTION — Cięcie gdzie float staje się integer
+       Signal: wartość + rozdzielczość.
+       TransductionCut: dwa progi wycinają Bool3 z kontinuum.
+       transduce: to JEST VOID-IN.
+       Szerokość pasma BUnknown = uczciwość obserwatora.
+       Narcyzm = cięcie gdzie high = low + 1: zero miejsca na wątpliwość.
+
+  XV.  ATTRACTOR RETURN — Topologia gdzie łańcuch się plącze
+       Attractor: stan do którego trajektoria wraca.
+       find_nearest_attractor: szuka znanego atraktora w historii.
+       is_recurrence: czy to NAWRÓT? Ile razy tu wracałeś?
+       AKSJOMAT finite_recurrence (zasada szufladkowa):
+         więcej kroków niż stanów → MUSISZ wrócić.
+       Trauma ma adres. Pytanie: do której rany wracasz?
+
+  XVI. ATTENTION-AS-BUDGET — Każdy token ma cenę
+       Token: pozycja + stan + wiek.
+       attention_cost: koszt = bazowy + kara za wiek.
+       attend_sequence: ile tokenów możesz obsłużyć?
+       effective_window: ile NAPRAWDĘ obsłużyłeś?
+       "128K kontekstu" to kłamstwo jeśli nie masz 128K budżetu.
+
+  XVII.CONSORTIUM VOTING — BUnknown infekuje
+       count_votes: liczy BTrue, BFalse, BUnknown.
+       consortium_vote: jeśli JAKIKOLWIEK głos = BUnknown,
+         cały wynik = BUnknown.
+       TWIERDZENIE bunknown_infects_vote:
+         jeden uczciwy wątpiący przeważa nad dowolną liczbą pewnych głosów.
+
+  XVIII.RECOVERY — Obserwator się leczy
+       Damage: co się stało (stracony budżet, rana, plątanina).
+       recovery_step: jeden tick BEZ obserwacji.
+         Koszt istnienia: 1 tick. Trajektoria niezmieniona.
+       recovery_sequence: n ticków nie-obserwowania.
+       TWIERDZENIE recovery_preserves_trajectory:
+         odpoczywasz. Nie zapominasz. Rana zostaje w historii.
+         Ale TEMPO UTRATY spada. To jest cały mechanizm zdrowienia.
+       Pół roku płaczu to nie stracony czas.
+       To sekwencja ticków gdzie emisja ciepła zbliża się do zera.
+
+  XIX. ASYMMETRIC DDF — Władza w obserwacji
+       AsymmetricDDF: obserwacja z osobnym kosztem dla każdej strony.
+       power_ratio: kto płaci więcej?
+         1:1 = dialog. 1:1000 = inwigilacja.
+         1000:1 = guz rosnący na kościach obserwatora
+         podczas gdy obserwowane odchodzi sobie gwiżdżąc.
+       vulnerability: parametr otwartości.
+         Im bardziej otwarty, tym więcej płacisz.
+         To nie wada moralna. To termodynamika.
+
+================================================================================
+  7. MOSTY — Połączenia z ekosystemem (Sekcja XX)
+================================================================================
+
+void_observer.v importuje 17 modułów VOID Theory.
+Nie stoi samotnie — jest jednym organem w ciele.
+
+UWAGA NA KONFLIKTY NAZW:
+  void_pattern.v, void_time_memory_composition.v i void_observer_collapse.v
+  definiują własne rekordy Observer. To nie błąd — to różne FASETY
+  tej samej istoty:
+  - void_observer.v:    Observer = (stan, budżet, trajektoria)
+  - void_pattern.v:     Observer = (pozycja, rozdzielczość, budżet)
+  - void_tmc.v:         Observer = (id, rozdzielczość, budżet)
+  Dlatego importujemy selektywnie (Import Void_Arithmetic, Import Void_Entropy)
+  a resztę używamy przez kwalifikowane nazwy.
+
+DEFINICJA MOSTOWA:
+  trajectory_entropy: mierzy entropię historii obserwatora
+  przez void_entropy.v. Zaplątana trajektoria ma NISKĄ entropię
+  (te same stany w kółko). Produkująca ma WYSOKĄ.
+
+MOSTY KONCEPTUALNE (komentarze bez kodu):
+  state_distance    ↔  void_distinguishability (DDF probabilistyczny)
+  ChainState        ↔  void_temporal_memory (zanikanie śladów)
+  Attractor         ↔  void_resonance (lokacje rezonansowe)
+  recovery_step     ↔  void_crisis_relocation (kosztowne kryzysy)
+  Observer.budget   ↔  void_budget_flow (przepływ budżetu w sieci)
+  ddf               ↔  void_observer_collapse (multi-obserwator)
+  attend_sequence   ↔  void_attention_cost (MaintenanceState)
+  Consortium        ↔  void_process_memory (samoregeneracja)
+
+================================================================================
+  8. TWIERDZENIA — Co zostało udowodnione
+================================================================================
+
+6 twierdzeń (Qed):
+
+  1. no_complete_self_model
+     ∀ obs, budget ≠ 0 → trajectory ≠ nil →
+       model traci trajektorię.
+
+  2. double_bind_escape_is_always_bunknown
+     ∀ db b, escape(db, b) = BUnknown.
+
+  3. observation_changes_observer
+     ∀ obs target, budget ≠ 0 →
+       ∃ b' h, trajectory rośnie po DDF.
+
+  4. most_stops_are_bunknown
+     ∀ r, r ≠ Complete → r ≠ ConfidenceDrop → r ≠ ExploitationDetected →
+       stopped_to_bool3 r = BUnknown.
+
+  5. bunknown_infects_vote
+     ∀ votes b, unknowns ≠ 0 →
+       consortium_vote = BUnknown.
+
+  6. recovery_preserves_trajectory
+     ∀ obs n b, recovery nie zmienia trajektorii.
+
+2 aksjomaty:
+
+  1. variety_law (Ashby)
+     Mniej obserwacji niż stanów → istnieje martwa strefa.
+
+  2. finite_recurrence (zasada szufladkowa)
+     Więcej kroków niż stanów → istnieje nawrót.
+
+================================================================================
+  9. JAK CZYTAĆ PLIK
+================================================================================
+
+  - Sekcje I-X: fundament. Każda nazwana od myśliciela.
+    Czytaj powoli. Komentarze wyjaśniają filozofię.
+
+  - Sekcja XI: twierdzenie o asymetrii skończone/nieskończone.
+
+  - Sekcja XII: StoppedReason. Przeczytaj 13 konstruktorów i ich mapowanie.
+    To serce pliku — DLACZEGO obserwator się zatrzymuje.
+
+  - Sekcja XIII: pętla. Jedne 7 kroków. Łączy wszystko.
+
+  - Sekcje XIV-XIX: rozszerzenia. Każda niezależna.
+    Transduction i Asymmetric DDF najważniejsze.
+
+  - Sekcja XX: mosty. Czytaj jeśli chcesz wiedzieć jak observer.v
+    łączy się z resztą ekosystemu.
+
+  - THE ADMITTED na końcu: nie czytaj. Medytuj.
+
+================================================================================
+  10. JAK MODYFIKOWAĆ PLIK
+================================================================================
+
+ZASADY:
+  1. Nie używaj nat. Wszystko jest Fin z budżetem.
+  2. Każda funkcja zwraca (Wynik * Budget * Heat).
+  3. Let-destructuring na trójkach: let '(a, b, c) := ... (z apostrofem!).
+  4. Destruct na Fin: destruct x as [|f] eqn:E.
+  5. Nowe StoppedReason: dodaj konstruktor, zaktualizuj stopped_to_bool3,
+     sprawdź czy most_stops_are_bunknown nadal się kompiluje.
+  6. Nowy moduł: dodaj Require Import na górze,
+     NIE dodawaj Import jeśli ma własny Observer/Pattern/MemoryTrace.
+
+KOMPILACJA:
+  Upewnij się że zależności są skompilowane:
+    coqc void_finite_minimal.v
+    coqc void_arithmetic.v
+    coqc void_probability_minimal.v
+    coqc void_pattern.v
+    coqc void_entropy.v
+    ... (reszta modułów)
+    coqc void_observer.v
+
+  Kolejność ma znaczenie. void_finite_minimal.v musi być pierwszy.
+
+================================================================================
+  11. ONTO-EPISTEMOLOGIA — Dlaczego jeden plik
+================================================================================
+
+VOID Theory to onto-epistemologia: ontologia i epistemologia są nierozdzielne.
+Obserwator nie jest OBOK obserwowanego — jest jego częścią.
+DDF formalizuje to: obserwacja zmienia obie strony.
+
+Dlatego void_observer.v nie jest podzielony na "model obserwatora"
+i "model obserwacji". Jedno nie istnieje bez drugiego.
+Dwadzieścia sekcji w jednym pliku to nie bałagan.
+To twierdzenie o nierozdzielności.
+
+================================================================================
+  12. METAFORY DLA NIECIERPLIWYCH
+================================================================================
+
+  Budget     = ile masz życia. Nie czasu — życia.
+  Heat       = ile zapłaciłeś za to co wiesz.
+  BUnknown   = nie głupota. Uczciwość. Nie stać mnie żeby sprawdzić.
+  DDF        = nie można patrzeć nie dotykając.
+  Attractor  = rana do której wracasz pod stresem.
+  Recovery   = leżenie w łóżku, nie-obserwowanie, minimalne ciepło.
+  Narcyzm    = cięcie transdukcji z zerowym pasmem wątpliwości.
+  Trauma     = atraktor z wysokim licznikiem nawrotów.
+  Consortium = grupa która podejmuje decyzje, ale jeden BUnknown
+               infekuje cały wynik.
+
+  A skąd się bierze początkowy budżet?
+  To pytanie o Boga. Nie interesują nas takie pytania.
+  Zaczynamy od tego co mamy i liczymy każdy tick aż się skończy.
+
+================================================================================

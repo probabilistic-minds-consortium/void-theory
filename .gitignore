@@ -24,3 +24,8 @@ benchmarks/data/
 
 # Pipeline cache
 pipeline/__pycache__/
+
+# Beckett analysis (local experiments)
+beckett_*.py
+beckett_*.json
+beckett_*.csv
