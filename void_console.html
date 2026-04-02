@@ -1,0 +1,387 @@
+<!DOCTYPE html>
+<html lang="pl">
+<head>
+    <meta charset="UTF-8">
+    <title>VOID_SYSTEM // CONSOLE_v4.2</title>
+    <link href="https://fonts.googleapis.com/css2?family=Share+Tech+Mono&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --amber: #ffb000;
+            --amber-dim: #4d3500;
+            --bg: #050505;
+            --panel: #121212;
+            --crt-glow: rgba(255, 176, 0, 0.1);
+            --code-bg: #0a0a0a;
+            --proof-green: #00ff88;
+        }
+        * { box-sizing: border-box; cursor: crosshair; }
+        body {
+            background: var(--bg); color: var(--amber);
+            font-family: 'Share Tech Mono', monospace;
+            margin: 0; padding: 20px; height: 100vh;
+            overflow: hidden; text-transform: uppercase;
+        }
+        /* CRT EFFECT LAYER */
+        .crt::before {
+            content: " "; display: block; position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+            background: linear-gradient(rgba(18, 16, 16, 0) 50%, rgba(0, 0, 0, 0.1) 50%),
+                        linear-gradient(90deg, rgba(255, 0, 0, 0.03), rgba(0, 255, 0, 0.01), rgba(0, 0, 255, 0.03));
+            background-size: 100% 3px, 3px 100%; pointer-events: none; z-index: 100;
+        }
+        /* MAIN CONSOLE FRAME */
+        #pipboy-frame {
+            display: grid; grid-template-columns: 1fr 400px; grid-template-rows: 80px 1fr 100px;
+            gap: 15px; height: 100%; border: 4px solid var(--amber-dim);
+            padding: 15px; background: var(--panel); box-shadow: inset 0 0 50px #000;
+        }
+        /* TOP STATUS BAR */
+        header {
+            grid-column: 1 / span 2; border: 2px solid var(--amber);
+            display: flex; justify-content: space-between; align-items: center;
+            padding: 0 20px; background: var(--amber-dim); color: #000; font-weight: bold;
+        }
+        /* MODULE TILES — 7 tiles: top row 4, bottom row 3 */
+        #module-grid {
+            display: grid; grid-template-columns: repeat(4, 1fr); grid-template-rows: repeat(2, 1fr);
+            gap: 12px; padding: 10px;
+        }
+        .tile {
+            border: 3px solid var(--amber); background: rgba(255, 176, 0, 0.05);
+            display: flex; flex-direction: column; justify-content: center; align-items: center;
+            text-align: center; padding: 12px; transition: 0.1s; position: relative;
+        }
+        .tile:hover { background: var(--amber); color: #000; box-shadow: 0 0 20px var(--amber); }
+        .tile span { font-size: 0.7rem; opacity: 0.8; }
+        .tile b { font-size: 1.05rem; display: block; margin-top: 4px; }
+        /* THEOREM TILE — special styling */
+        .tile.theorem-tile {
+            border-color: var(--proof-green);
+            background: rgba(0, 255, 136, 0.05);
+            grid-column: span 2;
+        }
+        .tile.theorem-tile:hover {
+            background: var(--proof-green); color: #000;
+            box-shadow: 0 0 20px var(--proof-green);
+        }
+        .tile.theorem-tile span { color: var(--proof-green); }
+        .tile.theorem-tile b { color: var(--proof-green); }
+        /* DATA DISPLAY SCREEN */
+        #data-screen {
+            border: 3px solid var(--amber); background: #000; padding: 25px;
+            overflow-y: auto; position: relative; box-shadow: inset 0 0 30px var(--crt-glow);
+            scrollbar-width: none;
+        }
+        #data-screen::-webkit-scrollbar { display: none; }
+        /* CONTENT STYLING */
+        .dump-header { border-bottom: 2px solid var(--amber); margin-bottom: 15px; padding-bottom: 5px; font-size: 1.4rem; color: #fff; text-shadow: 0 0 8px var(--amber); }
+        .dump-header.proof-header { border-color: var(--proof-green); text-shadow: 0 0 8px var(--proof-green); }
+        .dump-text { font-size: 1rem; line-height: 1.5; color: #ccc; margin-bottom: 20px; text-transform: none; }
+        .dump-text strong { color: var(--amber); text-transform: uppercase; }
+        .dump-text em.qed { color: var(--proof-green); font-style: normal; font-weight: bold; }
+
+        .void-code {
+            background: var(--code-bg); border-left: 4px solid var(--amber);
+            padding: 15px; margin: 20px 0; font-family: monospace; font-size: 0.85rem;
+            color: #888; text-transform: none; white-space: pre-wrap;
+        }
+        .void-code b { color: #fff; }
+        .void-code i { color: #ff4400; font-style: normal; }
+        .void-code .qed { color: var(--proof-green); }
+        .void-code.proof-code { border-color: var(--proof-green); }
+
+        .math-block {
+            text-align: center; font-size: 1.6rem; margin: 25px 0; padding: 20px;
+            color: #fff; text-transform: none;
+            border: 2px solid var(--proof-green);
+            background: rgba(0, 255, 136, 0.03);
+            text-shadow: 0 0 10px var(--proof-green);
+        }
+
+        .proof-table {
+            width: 100%; border-collapse: collapse; margin: 15px 0; text-transform: none;
+        }
+        .proof-table th { text-align: left; color: var(--proof-green); border-bottom: 1px solid var(--proof-green); padding: 6px 10px; font-size: 0.85rem; }
+        .proof-table td { padding: 5px 10px; color: #ccc; font-size: 0.8rem; border-bottom: 1px solid #222; }
+        .proof-table td.status { color: var(--proof-green); font-weight: bold; }
+
+        .ascii-art {
+            font-family: monospace; font-size: 0.75rem; line-height: 1.2;
+            color: #ff4400; text-align: center; margin: 25px 0; white-space: pre;
+            text-shadow: 0 0 5px #ff4400;
+        }
+        .ascii-art.proof-art { color: var(--proof-green); text-shadow: 0 0 5px var(--proof-green); }
+        /* TELEMETRY PANEL */
+        #sidebar { border-left: 2px double var(--amber-dim); padding-left: 20px; display: flex; flex-direction: column; justify-content: space-between; }
+        .gauge-label { font-size: 12px; margin-bottom: 5px; font-weight: bold; }
+        .gauge-bar { border: 2px solid var(--amber); height: 25px; padding: 2px; margin-bottom: 20px; position: relative; background: #000; }
+        .fill { height: 100%; background: var(--amber); transition: width 0.3s cubic-bezier(0.4, 0, 0.2, 1); width: 100%; }
+        #heat-fill { background: #ff0000; width: 0%; box-shadow: 0 0 10px #ff0000; }
+        /* HALT STATE */
+        #halt {
+            display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+            background: #000; z-index: 999; flex-direction: column; justify-content: center;
+            align-items: center; text-align: center; border: 10px solid #ff0000;
+        }
+    </style>
+</head>
+<body class="crt">
+<div id="halt">
+    <h1 style="font-size: 6rem; color: #ff0000; margin: 0; text-shadow: 0 0 20px #ff0000;">CRITICAL_HALT</h1>
+    <p style="font-size: 1.5rem; color: #fff;">BUNKNOWN: RESOLUTION LIMIT D EXHAUSTED</p>
+    <div class="void-code" style="text-align: left; width: 600px; border-color: #ff0000;">
+        [SYS_ERROR]: ENTROPY_OVERFLOW
+        [SYS_LOG]: Cannot resolve operation. Distance bound &le; 1/D exceeded.
+        [ACTION]: Halting cognitive process. No hallucinations generated.
+    </div>
+    <button onclick="location.reload()" style="background: var(--amber); color: #000; border: none; padding: 15px 30px; font-family: inherit; font-weight: bold; font-size: 1.2rem; margin-top: 20px;">INITIATE RECOVERY.V</button>
+</div>
+<div id="pipboy-frame">
+    <header>
+        <div>SYSTEM: VOID_OS_v4.2</div>
+        <div>OBSERVER: GUSTAW // STATUS: ACTIVE // METRIC: KILLER</div>
+        <div id="clock">00:00:00</div>
+    </header>
+    <div id="module-grid">
+        <div class="tile" onclick="loadContent('mission')">
+            <span>0x001</span><b>RESCUE MISSION</b><span>XIX_CENTURY_CRITIQUE</span>
+        </div>
+        <div class="tile" onclick="loadContent('maat')">
+            <span>0x002</span><b>MAAT_PRINCIPLE</b><span>ETHICS_OF_THE_STEP</span>
+        </div>
+        <div class="tile" onclick="loadContent('sin')">
+            <span>0x003</span><b>PASCAL_SIN</b><span>THEOLOGICAL_CONTRABAND</span>
+        </div>
+        <div class="tile" onclick="loadContent('narcissism')">
+            <span>0x004</span><b>NARCISSISM</b><span>INFINITY_AS_MASK</span>
+        </div>
+        <div class="tile" onclick="loadContent('throw')">
+            <span>0x005</span><b>THE_THROW</b><span>BIO_DISCRETE_ERROR</span>
+        </div>
+        <div class="tile" onclick="loadContent('halting')">
+            <span>0x006</span><b>HALTING_PROBLEM</b><span>DEFUNDING_PARADOX</span>
+        </div>
+        <div class="tile theorem-tile" onclick="loadContent('theorem')">
+            <span>0x007 // MACHINE-VERIFIED</span><b>THE THEOREM</b><span>COQ: QED // ZERO ADMITTED</span>
+        </div>
+    </div>
+    <div id="data-screen">
+        <div id="display-area">
+            <div class="dump-header">SYSTEM_READY...</div>
+            <p class="dump-text">Awaiting observer input. Zaznacz modul w lewym bloku, aby odczytac dane z repozytorium Coq. Pamietaj: <strong>kazda operacja zmniejsza zasoby i emituje cieplo.</strong> Nieskonczonosc nie nadejdzie z pomoca.</p>
+            <div class="ascii-art" style="color: var(--amber);">
+     /=======D=======\
+    /                 \
+   |   [FIN_PROB]      |
+   |    NO_FLOATS      |
+    \                 /
+     \===============/
+            </div>
+        </div>
+    </div>
+    <aside id="sidebar">
+        <div style="margin-top: 10px;">
+            <div class="gauge-label">OBS_BUDGET (FIN)</div>
+            <div class="gauge-bar"><div id="budget-fill" class="fill"></div></div>
+
+            <div class="gauge-label">THERMAL_LOAD (HEAT)</div>
+            <div class="gauge-bar" style="border-color: #ff0000;"><div id="heat-fill" class="fill"></div></div>
+        </div>
+        <div style="border: 1px dashed var(--amber); padding: 15px; font-size: 11px; background: rgba(255,176,0,0.05); line-height: 1.5;">
+            > D_RESOLUTION: 2^16<br>
+            > ERROR_LIMIT: &le; 1/D<br>
+            > LOGIC_MODE: BOOL3<br>
+            > ZEILBERGER_OK: TRUE<br>
+            <span style="color: #ff4400; font-weight: bold;">[!] AXIOM_6_REJECTED</span><br>
+            <span style="color: var(--proof-green);">[+] BAYES_VERIFIED: QED</span>
+        </div>
+    </aside>
+</div>
+<script>
+    const contentData = {
+        mission: {
+            h: "DUMP: XIX_CENTURY_MISSION",
+            t: `Brodaci giganci XIX wieku &ndash; Riemann, Cantor, Dedekind &ndash; spedzili zycie polerujac pojecie Nieskonczonosci. To nie bylo odkrycie. <strong>To byla misja ratunkowa.</strong> Widzieli tron Boga pusty i wpadli w panike. Przemycili Teologie do aksjomatow, by stworzyc gladki schron dla Absolutu przed brutalnoscia Skonczonego.
+            <div class="void-code">(* The axiom is not merely unneeded &mdash; it is INEXPRESSIBLE. *)
+<b>Definition</b> kolmogorov_axiom_6 : Prop := <i>True</i>.
+(* No infinite sum on Fin can be defined. *)</div>
+            Prawdziwym zrodlem halucynacji AI nie sa floaty. Floaty to inzynieryjna proteza. Zrodlem jest aksjomatyka prawdopodobienstwa Kolmogorowa i jej dogmat o nieskonczonosci: sigma-algebry, przeliczalne sumy, przeliczalna addytywnosc. W VOID &mdash; infinity does not exist.`,
+            a: `   &infin;
+  / \\   &lt;- FALSE IDOL
+ /___\\
+[1]-[2]-[3]...-[D]`
+        },
+        maat: {
+            h: "DUMP: MAAT_PRINCIPLE",
+            t: `Maat mowi jasno: "Nie istnieje nieskonczonosc, ktora cie uratuje. Porzadek musi byc utrzymywany w kazdym fizycznym kroku". <strong>Swiat rozlicza pojedynczy krok, nie abstrakcyjna granice lim(x&rarr;&infin;).</strong>
+            <div class="void-code"><b>Fixpoint</b> dist_fin_b_heat (n m : Fin) (b : Budget)
+  : (Fin * Budget * Heat) :=
+  match b with
+  | fz =&gt; (fz, fz, <i>max_heat</i>) (* Maat is strict *)
+  | fs b' =&gt; ...</div>
+            VOID przywraca Maat do obliczen. Kazda petla, kazde sprawdzenie dowodu ma swoj nieodwracalny koszt termodynamiczny. Obserwacja kosztuje. Decyzja kosztuje.`,
+            a: `    MAAT_BALANCE
+ [BUDGET] ====== [HEAT]`
+        },
+        throw: {
+            h: "DUMP: THE_THROW",
+            t: `Lekarze mowia o rokowaniach &ndash; to duch statystyki Queteleta, usredniony "czlowiek". Ale jako chory na raka, z unieruchomionym cialem, wiem jedno: <strong>Nie jestem srednia.</strong> Jestem konkretnym, krwawiacym rzutem kosci, zamknietym w fizycznym ciele.
+            <div class="void-code"><b>Theorem</b> pure_floored_error_bound : forall exact_n,
+  leF (fin_sub (fin_max exact_n (fs fz)) exact_n) (fs fz).
+(* System refuses absolute certainty. *)</div>
+            Moja matematyka musi byc tak realna jak kosc udowa. VOID to matematyka wraka &ndash; ostra, geometryczna akceptacja kraksy i ograniczonego pojemnika (Frozen Denominator). Gdy zasoby sie koncza, system zwraca BUnknown, a nie halucynacje zdrowia.`,
+            a: `   ___
+  / 6 /|  &lt;- THE SINGULAR ACT
+ /___/ |
+ |   | 2
+ | 4 |/
+  ---`
+        },
+        sin: {
+            h: "DUMP: PASCAL_ORIGINAL_SIN",
+            t: `Zaklad Pascala to oszustwo termodynamiczne. Pascal zalozyl, ze rzut w nieskonczonosc nic nie kosztuje, co pozwala przeniesc cala odpowiedzialnosc poznawcza w abstrakcyjna nagrode.
+            <div class="void-code"><b>Definition</b> bayes_frozen_add (prior: FrozenProb) (b: Budget) ...
+(* No division. No multiplication. Additive shift only. *)
+  | Supports =&gt; <b>match</b> add_fin_b_heat n ev b <b>with</b> ...</div>
+            VOID demaskuje ten szmugiel. Algorytmy ML wierza w Pascala, dlatego optymalizuja funkcje straty bez liczenia sie z entropia. Prawdziwe poznanie jest tanie, liniowe, addytywne i drastycznie skonczone.`,
+            a: ` [PRIOR] -&gt; [+] -&gt; [+] -&gt; [D-1]
+                   |
+            [WALL OF FINITUDE]`
+        },
+        narcissism: {
+            h: "DUMP: INFINITY_AS_MASK",
+            t: `Narcyz nie znosi skonczonosci. Wzdycha do "nieskonczonego ja", ktore rzekomo jest ponad podzialami i nie musi placic rachunkow. Nieskonczonosc to <strong>martwa maska</strong> chronoaca przed groza faktu, ze nasz hardware sie sypie.
+            <div class="void-code"><b>Record</b> FrozenProb := mkFrozen {
+  fp_num : Fin;
+  fp_den : Fin  <i>(* D is frozen. D is destiny. *)</i>
+}.</div>
+            Sieci neuronowe to szczyt kolektywnego narcyzmu ludzkosci. To marzenie o byciu odcietym od termodynamiki. VOID przywraca pokore: D jest zamrozone. Nigdy nie bedziesz wiedzial wszystkiego.`,
+            a: `   _____
+  /     \\  [MIRROR]
+ | &infin; == 0 |
+  \\_____/`
+        },
+        halting: {
+            h: "DUMP: DEFUNDING_PARADOX",
+            t: `W klasycznej logice Paradoks Klamcy i Problem Stopu Turinga powoduja zapetlenie maszyny, ujawniajac fundamentalne bledy strukturalne. <strong>W VOID paradoksy sie nie rozwiazuja &ndash; one po prostu traca finansowanie.</strong>
+            <div class="void-code"><b>match</b> ev_dir ev <b>with</b>
+| Neutral =&gt; (prior, b, <i>fz</i>)
+(* Budget exhausted: cannot determine direction. HALT. *)</div>
+            Jesli badanie self-referencji kosztuje wiecej niz 1000 krokow, system zrzuca stan <code>BUnknown</code>. Nie zmysla (overfitting), nie wisi w prozni. To chlodne, bezlitosne milczenie wyliczone przez system w Coq.`,
+            a: ` &circlearrowleft; LOOP DETECTED &circlearrowleft;
+ &#9618;&#9618;&#9618;&#9618;&#9618;&#9618;&#9618;&#9617;&#9617;&#9617;&#9617; BUDGET DRAINING
+ [HALT: B_UNKNOWN]`
+        },
+        theorem: {
+            h: "THE THEOREM",
+            isProof: true,
+            t: `<strong style="color: var(--proof-green);">Twierdzenie</strong> (bayes_additive_bounded_error). Niech (p, D) bedzie ulamkiem skoczonym (<em>frozen probability</em>), gdzie p, D &isin; <strong>Fin</strong> i p &le; D. Niech L, C beda wiarygodnosciami. Definiujemy dwie aktualizacje:
+
+<strong>Bayes dokladny</strong>: p' = (p &middot; L) / (p &middot; L + (D &minus; p) &middot; C), skalowany do mianownika D.
+<strong>Bayes addytywny</strong>: przesun licznik o &plusmn;k, zachowujac D:
+&nbsp;&nbsp;&nbsp;&nbsp;Wspierajacy dowod: p<sub>add</sub> = min(p', D &minus; 1)
+&nbsp;&nbsp;&nbsp;&nbsp;Podwazajacy dowod: p<sub>add</sub> = max(p', 1)
+
+<div class="math-block">| p<sub>add</sub> &minus; p' | &nbsp;&le;&nbsp; 1</div>
+
+Odleglosc miedzy wynikiem addytywnym a dokladnym wynosi <em class="qed">co najwyzej 1</em> (w jednostkach licznika, tj. 1/D).
+
+<div class="void-code proof-code"><b>Theorem</b> bayes_additive_bounded_error :
+  forall prior lh clh b,
+  sufficient_budget prior lh clh b -&gt;
+  forall ev b_s h_s, compute_shift prior lh clh b = (ev, b_s, h_s) -&gt;
+  forall add_result b_a h_a, bayes_frozen_add prior ev b_s = (add_result, b_a, h_a) -&gt;
+  forall exact_result b_e h_e, bayes_frozen_exact prior lh clh b = (exact_result, b_e, h_e) -&gt;
+  forall dist b_d h_d, frozen_distance exact_result add_result b_a = (dist, b_d, h_d) -&gt;
+  leF dist (fs fz).
+Proof.
+  (* Case split on evidence direction *)
+  (* Supports: pure_capped_error_bound *)
+  (* Refutes:  pure_floored_error_bound *)
+  (* Neutral:  contradiction *)
+<span class="qed">Qed.  (* ZERO ADMITTED *)</span></div>
+
+<strong style="color: var(--proof-green);">Konsekwencja (Aksjomat 6 Kolmogorowa)</strong>. Przeliczalna addytywnosc Kolmogorowa wymaga: dla kazdego przeliczalnego ciagu parami rozlacznych zdarzen A<sub>1</sub>, A<sub>2</sub>, ...
+
+&nbsp;&nbsp;&nbsp;&nbsp;P(&cup;<sub>i=1</sub><sup>&infin;</sup> A<sub>i</sub>) = &Sigma;<sub>i=1</sub><sup>&infin;</sup> P(A<sub>i</sub>)
+
+Aksjomat ten jest <em class="qed">niewyrażalny</em> w systemie VOID. Typ <strong>Fin</strong> nie dopuszcza nieskonczonosci &mdash; nie istnieje na nim nieskonczona suma, nieskonczona sekwencja, ani granica. Przestrzen zdarzen dla mianownika D to zbior skonczony {0/D, 1/D, ..., D/D}. Kazdy podzbior jest trywialnie mierzalny. Sigma-algebra jest zbedna.
+
+Mimo to &mdash; wnioskowanie bayesowskie dziala z udowodnionym bledem &le; 1/D.
+
+<div class="void-code proof-code"><b>Theorem</b> bayesian_inference_without_axiom_6 :
+  (* IDENTICAL statement to bayes_additive_bounded_error.
+     Proof uses: Fin arithmetic, leF ordering, structural induction.
+     Proof does NOT use: sigma-algebra, countable sum, limit, axiom 6. *)
+  forall prior lh clh b, sufficient_budget prior lh clh b -&gt; ...
+  leF dist (fs fz).
+Proof. exact bayes_additive_bounded_error. <span class="qed">Qed.</span></div>
+
+<table class="proof-table">
+<tr><th>Twierdzenie</th><th>Status</th><th>Metoda</th></tr>
+<tr><td>bayes_additive_bounded_error</td><td class="status">Qed</td><td>case analysis + pure arithmetic</td></tr>
+<tr><td>pure_capped_error_bound</td><td class="status">Qed</td><td>structural induction on Fin</td></tr>
+<tr><td>pure_floored_error_bound</td><td class="status">Qed</td><td>structural induction on Fin</td></tr>
+<tr><td>fin_add_comm</td><td class="status">Qed</td><td>induction + fin_add_fz_l</td></tr>
+<tr><td>fin_add_assoc</td><td class="status">Qed</td><td>structural induction on Fin</td></tr>
+<tr><td>bayesian_inference_without_axiom_6</td><td class="status">Qed</td><td>= bayes_additive_bounded_error</td></tr>
+<tr><td>sequential_preserves_den</td><td class="status">Qed</td><td>induction on evidence list</td></tr>
+</table>`,
+            a: ` KOLMOGOROV (1933)           VOID (2026)
+ ========================   ========================
+ Axiom 1: P(A) >= 0         Fin has no negatives
+ Axiom 2: P(Omega) = 1      D/D = maximum
+ Axiom 3: sigma-algebra      UNNECESSARY (finite set)
+ Axiom 4: measurability      TRIVIAL (every subset)
+ Axiom 5: P(empty) = 0      fz = zero
+ Axiom 6: COUNTABLE ADD.     INEXPRESSIBLE ON FIN
+ ========================   ========================
+ INFINITY REQUIRED: YES      INFINITY REQUIRED: NO
+ BAYES WORKS: YES            BAYES WORKS: YES (Qed)`
+        }
+    };
+    let budget = 1000;
+    let heat = 0;
+    const bFill = document.getElementById('budget-fill');
+    const hFill = document.getElementById('heat-fill');
+    const halt = document.getElementById('halt');
+    let isHalted = false;
+    function loadContent(id) {
+        if (isHalted) return;
+        // SYSTEM COST
+        budget -= 140;
+        heat += 180;
+        if (budget < 0) budget = 0;
+
+        bFill.style.width = (budget / 10) + "%";
+        hFill.style.width = (heat / 10) + "%";
+        const d = contentData[id];
+        const area = document.getElementById('display-area');
+        const headerClass = d.isProof ? 'dump-header proof-header' : 'dump-header';
+        const artClass = d.isProof ? 'ascii-art proof-art' : 'ascii-art';
+        area.innerHTML = `
+            <div class="${headerClass}">${d.h}</div>
+            <p class="dump-text">${d.t}</p>
+            <div class="${artClass}">${d.a}</div>
+        `;
+
+        // PHYSICAL GLITCH EFFECT
+        document.body.style.transform = `translate(${Math.random()*4 - 2}px, ${Math.random()*4 - 2}px)`;
+        setTimeout(() => document.body.style.transform = `none`, 60);
+        if (budget <= 0 || heat >= 1000) {
+            isHalted = true;
+            setTimeout(() => halt.style.display = "flex", 400);
+        }
+    }
+    // CLOCK AND PASSIVE COOLING
+    setInterval(() => {
+        const d = new Date();
+        document.getElementById('clock').innerText = d.toTimeString().split(' ')[0];
+        if (!isHalted && heat > 0) {
+            heat -= 3;
+            if(heat < 0) heat = 0;
+            hFill.style.width = (heat / 10) + "%";
+        }
+    }, 1000);
+</script>
+</body>
+</html>

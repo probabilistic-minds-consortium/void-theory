@@ -1,0 +1,637 @@
+<!DOCTYPE html>
+<html lang="pl">
+<head>
+<meta charset="UTF-8">
+<title>VOID Cloud — Topology Visualization</title>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body {
+    background: #0a0a0f;
+    color: #c8c8d4;
+    font-family: 'SF Mono', 'Fira Code', 'Consolas', monospace;
+    overflow-x: hidden;
+  }
+
+  .header {
+    text-align: center;
+    padding: 32px 20px 16px;
+  }
+  .header h1 {
+    font-size: 28px;
+    font-weight: 300;
+    color: #e0e0f0;
+    letter-spacing: 6px;
+    text-transform: uppercase;
+  }
+  .header .sub {
+    font-size: 13px;
+    color: #666680;
+    margin-top: 6px;
+    letter-spacing: 2px;
+  }
+
+  .tabs {
+    display: flex;
+    justify-content: center;
+    gap: 8px;
+    padding: 16px;
+    flex-wrap: wrap;
+  }
+  .tab {
+    padding: 10px 20px;
+    background: #12121a;
+    border: 1px solid #222238;
+    border-radius: 6px;
+    cursor: pointer;
+    font-size: 13px;
+    color: #888;
+    transition: all 0.3s;
+    font-family: inherit;
+  }
+  .tab:hover { border-color: #444466; color: #aaa; }
+  .tab.active {
+    background: #1a1a2e;
+    border-color: #4a6fa5;
+    color: #8ab4f8;
+  }
+
+  .main {
+    display: flex;
+    gap: 24px;
+    padding: 16px 32px;
+    max-width: 1400px;
+    margin: 0 auto;
+    flex-wrap: wrap;
+  }
+
+  .viz-panel {
+    flex: 1;
+    min-width: 600px;
+    position: relative;
+  }
+  canvas#cloud {
+    width: 100%;
+    border-radius: 12px;
+    border: 1px solid #1a1a2e;
+    background: #08080e;
+  }
+
+  .info-panel {
+    width: 340px;
+    min-width: 300px;
+  }
+
+  .card {
+    background: #0f0f18;
+    border: 1px solid #1a1a2e;
+    border-radius: 10px;
+    padding: 20px;
+    margin-bottom: 16px;
+  }
+  .card h3 {
+    font-size: 11px;
+    text-transform: uppercase;
+    letter-spacing: 3px;
+    color: #555570;
+    margin-bottom: 14px;
+  }
+
+  .metric-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: baseline;
+    padding: 6px 0;
+    border-bottom: 1px solid #141420;
+  }
+  .metric-row:last-child { border-bottom: none; }
+  .metric-label { font-size: 12px; color: #777790; }
+  .metric-value { font-size: 18px; font-weight: 600; }
+  .metric-value.highlight { color: #8ab4f8; }
+  .metric-value.green { color: #66bb6a; }
+  .metric-value.red { color: #ef5350; }
+  .metric-value.amber { color: #ffa726; }
+  .metric-value.perfect { color: #ce93d8; }
+
+  .bar-container {
+    height: 6px;
+    background: #1a1a2e;
+    border-radius: 3px;
+    margin-top: 8px;
+    overflow: hidden;
+  }
+  .bar-fill {
+    height: 100%;
+    border-radius: 3px;
+    transition: width 0.6s ease;
+  }
+  .bar-correct { background: #66bb6a; }
+  .bar-wrong { background: #ef5350; }
+  .bar-unknown { background: #555570; }
+
+  .stacked-bar {
+    display: flex;
+    height: 10px;
+    border-radius: 5px;
+    overflow: hidden;
+    margin-top: 10px;
+  }
+
+  .legend {
+    display: flex;
+    gap: 16px;
+    margin-top: 10px;
+    flex-wrap: wrap;
+  }
+  .legend-item {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 11px;
+    color: #777;
+  }
+  .legend-dot {
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+  }
+
+  .training-chart {
+    width: 100%;
+    height: 120px;
+    margin-top: 8px;
+  }
+
+  .neuron-tooltip {
+    position: absolute;
+    background: #1a1a2e;
+    border: 1px solid #333355;
+    border-radius: 8px;
+    padding: 12px;
+    font-size: 11px;
+    pointer-events: none;
+    opacity: 0;
+    transition: opacity 0.2s;
+    z-index: 100;
+    min-width: 180px;
+  }
+  .neuron-tooltip.visible { opacity: 1; }
+  .neuron-tooltip .tt-row {
+    display: flex;
+    justify-content: space-between;
+    padding: 2px 0;
+  }
+  .neuron-tooltip .tt-label { color: #666; }
+  .neuron-tooltip .tt-val { color: #aab; font-weight: 600; }
+
+  .dataset-desc {
+    font-size: 12px;
+    color: #666680;
+    line-height: 1.6;
+    margin-top: 4px;
+  }
+
+  @media (max-width: 1000px) {
+    .main { flex-direction: column; padding: 16px; }
+    .viz-panel { min-width: 300px; }
+    .info-panel { width: 100%; }
+  }
+</style>
+</head>
+<body>
+
+<div class="header">
+  <h1>Void Cloud</h1>
+  <div class="sub">Graph Neural Network &mdash; Self-Organizing Topology &mdash; Integer Arithmetic</div>
+</div>
+
+<div class="tabs" id="tabs"></div>
+
+<div class="main">
+  <div class="viz-panel">
+    <canvas id="cloud" width="800" height="700"></canvas>
+    <div class="neuron-tooltip" id="tooltip"></div>
+  </div>
+  <div class="info-panel">
+    <div class="card" id="card-dataset"></div>
+    <div class="card" id="card-metrics"></div>
+    <div class="card" id="card-distribution"></div>
+    <div class="card" id="card-training"></div>
+  </div>
+</div>
+
+<script>
+// ============================================================
+// DATA (embedded)
+// ============================================================
+const DATA = {"datasets": [{"name": "Breast Cancer Wisconsin", "class_names": ["Malignant", "Benign"], "n_samples": 569, "n_features": 30, "n_neurons": 64, "k_neighbors": 8, "n_ticks": 3, "metrics": {"correct": 459, "wrong": 2, "unknown": 108, "coverage_pct": 81, "cond_accuracy_permille": 995}, "neurons": [{"id": 0, "x": 0, "y": 0, "neighbors": [32, 43, 22, 7, 36, 60, 40, 41], "state": 0, "activity": -32, "correct": 4874, "wrong": 6581, "is_output": false, "amplitude": 1, "n_features": 18}, {"id": 1, "x": 367, "y": 867, "neighbors": [34, 16, 39, 54, 37, 26, 11, 15], "state": 34, "activity": 2, "correct": 0, "wrong": 0, "is_output": false, "amplitude": 500, "n_features": 18}, {"id": 2, "x": 869, "y": 230, "neighbors": [5, 8, 10, 13, 18, 23, 24, 25], "state": 0, "activity": -32, "correct": 25543, "wrong": 7765, "is_output": false, "amplitude": 999, "n_features": 18}, {"id": 3, "x": 156, "y": 642, "neighbors": [61, 40, 17, 35, 60, 41, 26, 37], "state": 41, "activity": 9, "correct": 0, "wrong": 0, "is_output": false, "amplitude": 500, "n_features": 18}, {"id": 4, "x": 552, "y": 976, "neighbors": [39, 12, 20, 15, 34, 1, 51, 54], "state": 29, "activity": -3, "correct": 0, "wrong": 0, "is_output": false, "amplitude": 500, "n_features": 18}, {"id": 5, "x": 869, "y": 230, "neighbors": [2, 8, 10, 13, 18, 23, 24, 25], "state": 0, "activity": -32, "correct": 25413, "wrong": 7739, "is_output": false, "amplitude": 999, "n_features": 18}, {"id": 6, "x": 819, "y": 882, "neighbors": [62, 51, 20, 12, 38, 48, 4, 15], "state": 39, "activity": 7, "correct": 0, "wrong": 0, "is_output": false, "amplitude": 500, "n_features": 18}, {"id": 7, "x": 158, "y": 194, "neighbors": [22, 43, 36, 0, 32, 60, 61, 47], "state": 28, "activity": -4, "correct": 0, "wrong": 0, "is_output": false, "amplitude": 500, "n_features": 18}, {"id": 8, "x": 869, "y": 230, "neighbors": [2, 5, 10, 13, 18, 23, 24, 25], "state": 0, "activity": -32, "correct": 25742, "wrong": 7782, "is_output": false, "amplitude": 999, "n_features": 18}, {"id": 9, "x": 517, "y": 500, "neighbors": [19, 14, 27, 58, 47, 21, 50, 15], "state": 39, "activity": 7, "correct": 0, "wrong": 0, "is_output": false, "amplitude": 500, "n_features": 18}, {"id": 10, "x": 869, "y": 230, "neighbors": [2, 5, 8, 13, 18, 23, 24, 25], "state": 19, "activity": -13, "correct": 25784, "wrong": 7749, "is_output": false, "amplitude": 999, "n_features": 18}, {"id": 11, "x": 118, "y": 898, "neighbors": [49, 37, 30, 35, 16, 17, 54, 34], "state": 30, "activity": -2, "correct": 0, "wrong": 0, "is_output": false, "amplitude": 500, "n_features": 18}, {"id": 12, "x": 680, "y": 962, "neighbors": [20, 4, 51, 62, 6, 39, 15, 50], "state": 31, "activity": -1, "correct": 0, "wrong": 0, "is_output": false, "amplitude": 500, "n_features": 18}, {"id": 13, "x": 869, "y": 230, "neighbors": [2, 5, 8, 10, 18, 23, 24, 25], "state": 17, "activity": -15, "correct": 25723, "wrong": 7768, "is_output": false, "amplitude": 999, "n_features": 18}, {"id": 14, "x": 496, "y": 641, "neighbors": [19, 58, 27, 26, 9, 15, 50, 21], "state": 34, "activity": 2, "correct": 0, "wrong": 0, "is_output": false, "amplitude": 500, "n_features": 18}, {"id": 15, "x": 551, "y": 765, "neighbors": [58, 14, 4, 50, 39, 19, 1, 9], "state": 28, "activity": -4, "correct": 0, "wrong": 0, "is_output": false, "amplitude": 500, "n_features": 18}, {"id": 16, "x": 258, "y": 854, "neighbors": [37, 1, 34, 54, 11, 35, 49, 39], "state": 26, "activity": -6, "correct": 0, "wrong": 0, "is_output": false, "amplitude": 500, "n_features": 18}, {"id": 17, "x": 104, "y": 713, "neighbors": [35, 41, 3, 40, 37, 11, 60, 61], "state": 36, "activity": 4, "correct": 0, "wrong": 0, "is_output": false, "amplitude": 500, "n_features": 18}, {"id": 18, "x": 869, "y": 230, "neighbors": [2, 5, 8, 10, 13, 23, 24, 25], "state": 0, "activity": -32, "correct": 25794, "wrong": 7783, "is_output": false, "amplitude": 999, "n_features": 18}, {"id": 19, "x": 484, "y": 566, "neighbors": [27, 14, 9, 21, 26, 58, 50, 15], "state": 33, "activity": 1, "correct": 0, "wrong": 0, "is_output": false, "amplitude": 500, "n_features": 18}, {"id": 20, "x": 714, "y": 966, "neighbors": [12, 51, 62, 4, 6, 39, 15, 50], "state": 23, "activity": -9, "correct": 0, "wrong": 0, "is_output": false, "amplitude": 500, "n_features": 18}, {"id": 21, "x": 312, "y": 582, "neighbors": [26, 27, 61, 19, 3, 60, 14, 40], "state": 32, "activity": 0, "correct": 0, "wrong": 0, "is_output": false, "amplitude": 500, "n_features": 18}, {"id": 22, "x": 61, "y": 169, "neighbors": [7, 43, 0, 32, 36, 60, 40, 61], "state": 34, "activity": 2, "correct": 0, "wrong": 0, "is_output": false, "amplitude": 500, "n_features": 18}, {"id": 23, "x": 869, "y": 230, "neighbors": [2, 5, 8, 10, 13, 18, 24, 25], "state": 22, "activity": -10, "correct": 25698, "wrong": 7762, "is_output": false, "amplitude": 999, "n_features": 18}, {"id": 24, "x": 869, "y": 230, "neighbors": [2, 5, 8, 10, 13, 18, 23, 25], "state": 22, "activity": -10, "correct": 26026, "wrong": 7795, "is_output": false, "amplitude": 999, "n_features": 18}, {"id": 25, "x": 869, "y": 230, "neighbors": [2, 5, 8, 10, 13, 18, 23, 24], "state": 22, "activity": -10, "correct": 25912, "wrong": 7772, "is_output": false, "amplitude": 999, "n_features": 18}, {"id": 26, "x": 346, "y": 638, "neighbors": [21, 27, 14, 3, 19, 1, 61, 47], "state": 38, "activity": 6, "correct": 0, "wrong": 0, "is_output": false, "amplitude": 500, "n_features": 18}, {"id": 27, "x": 421, "y": 579, "neighbors": [19, 21, 26, 14, 9, 47, 61, 58], "state": 32, "activity": 0, "correct": 0, "wrong": 0, "is_output": false, "amplitude": 500, "n_features": 18}, {"id": 28, "x": 869, "y": 230, "neighbors": [2, 5, 8, 10, 13, 18, 23, 24], "state": 0, "activity": -32, "correct": 4739, "wrong": 6574, "is_output": false, "amplitude": 1, "n_features": 18}, {"id": 29, "x": 869, "y": 230, "neighbors": [2, 5, 8, 10, 13, 18, 23, 24], "state": 3, "activity": -29, "correct": 4898, "wrong": 6580, "is_output": false, "amplitude": 1, "n_features": 18}, {"id": 30, "x": 46, "y": 968, "neighbors": [49, 11, 54, 37, 41, 35, 17, 16], "state": 40, "activity": 8, "correct": 0, "wrong": 0, "is_output": false, "amplitude": 500, "n_features": 18}, {"id": 31, "x": 869, "y": 230, "neighbors": [2, 5, 8, 10, 13, 18, 23, 24], "state": 0, "activity": -32, "correct": 4874, "wrong": 6581, "is_output": false, "amplitude": 1, "n_features": 18}, {"id": 32, "x": 0, "y": 0, "neighbors": [0, 43, 22, 7, 36, 60, 40, 41], "state": 0, "activity": -32, "correct": 4820, "wrong": 6575, "is_output": false, "amplitude": 1, "n_features": 18}, {"id": 33, "x": 869, "y": 230, "neighbors": [2, 5, 8, 10, 13, 18, 23, 24], "state": 0, "activity": -32, "correct": 4563, "wrong": 6562, "is_output": false, "amplitude": 1, "n_features": 18}, {"id": 34, "x": 362, "y": 894, "neighbors": [1, 39, 16, 54, 11, 37, 4, 26], "state": 34, "activity": 2, "correct": 0, "wrong": 0, "is_output": false, "amplitude": 500, "n_features": 18}, {"id": 35, "x": 145, "y": 758, "neighbors": [17, 37, 3, 11, 41, 16, 40, 60], "state": 31, "activity": -1, "correct": 0, "wrong": 0, "is_output": false, "amplitude": 500, "n_features": 18}, {"id": 36, "x": 225, "y": 404, "neighbors": [47, 61, 60, 21, 7, 3, 40, 26], "state": 37, "activity": 5, "correct": 0, "wrong": 0, "is_output": false, "amplitude": 500, "n_features": 18}, {"id": 37, "x": 175, "y": 820, "neighbors": [35, 16, 11, 17, 3, 49, 1, 34], "state": 28, "activity": -4, "correct": 0, "wrong": 0, "is_output": false, "amplitude": 500, "n_features": 18}, {"id": 38, "x": 974, "y": 791, "neighbors": [48, 6, 62, 51, 20, 15, 50, 12], "state": 40, "activity": 8, "correct": 0, "wrong": 0, "is_output": false, "amplitude": 500, "n_features": 18}, {"id": 39, "x": 460, "y": 930, "neighbors": [34, 4, 1, 54, 12, 15, 16, 20], "state": 39, "activity": 7, "correct": 0, "wrong": 0, "is_output": false, "amplitude": 500, "n_features": 18}, {"id": 40, "x": 83, "y": 596, "neighbors": [3, 60, 41, 17, 61, 35, 21, 26], "state": 21, "activity": -11, "correct": 0, "wrong": 0, "is_output": false, "amplitude": 500, "n_features": 18}, {"id": 41, "x": 38, "y": 677, "neighbors": [17, 40, 3, 35, 60, 61, 37, 30], "state": 37, "activity": 5, "correct": 0, "wrong": 0, "is_output": false, "amplitude": 500, "n_features": 18}, {"id": 42, "x": 869, "y": 230, "neighbors": [2, 5, 8, 10, 13, 18, 23, 24], "state": 0, "activity": -32, "correct": 4873, "wrong": 6581, "is_output": false, "amplitude": 1, "n_features": 18}, {"id": 43, "x": 140, "y": 39, "neighbors": [7, 0, 32, 22, 36, 60, 61, 47], "state": 31, "activity": -1, "correct": 0, "wrong": 0, "is_output": false, "amplitude": 500, "n_features": 18}, {"id": 44, "x": 869, "y": 230, "neighbors": [2, 5, 8, 10, 13, 18, 23, 24], "state": 0, "activity": -32, "correct": 4844, "wrong": 6582, "is_output": false, "amplitude": 1, "n_features": 18}, {"id": 45, "x": 869, "y": 230, "neighbors": [2, 5, 8, 10, 13, 18, 23, 24], "state": 0, "activity": -32, "correct": 4902, "wrong": 6583, "is_output": false, "amplitude": 1, "n_features": 18}, {"id": 46, "x": 869, "y": 230, "neighbors": [2, 5, 8, 10, 13, 18, 23, 24], "state": 0, "activity": -32, "correct": 4749, "wrong": 6572, "is_output": false, "amplitude": 1, "n_features": 18}, {"id": 47, "x": 370, "y": 392, "neighbors": [36, 27, 21, 9, 26, 19, 61, 60], "state": 42, "activity": 10, "correct": 0, "wrong": 0, "is_output": false, "amplitude": 500, "n_features": 18}, {"id": 48, "x": 920, "y": 730, "neighbors": [38, 6, 62, 51, 50, 58, 15, 20], "state": 33, "activity": 1, "correct": 0, "wrong": 0, "is_output": false, "amplitude": 500, "n_features": 18}, {"id": 49, "x": 128, "y": 995, "neighbors": [11, 30, 54, 37, 35, 16, 17, 34], "state": 34, "activity": 2, "correct": 0, "wrong": 0, "is_output": false, "amplitude": 500, "n_features": 18}, {"id": 50, "x": 674, "y": 639, "neighbors": [58, 14, 15, 19, 9, 27, 51, 12], "state": 41, "activity": 9, "correct": 0, "wrong": 0, "is_output": false, "amplitude": 500, "n_features": 18}, {"id": 51, "x": 751, "y": 881, "neighbors": [62, 6, 20, 12, 4, 38, 15, 50], "state": 36, "activity": 4, "correct": 0, "wrong": 0, "is_output": false, "amplitude": 500, "n_features": 18}, {"id": 52, "x": 869, "y": 230, "neighbors": [2, 5, 8, 10, 13, 18, 23, 24], "state": 0, "activity": -32, "correct": 4884, "wrong": 6580, "is_output": false, "amplitude": 1, "n_features": 18}, {"id": 53, "x": 869, "y": 230, "neighbors": [2, 5, 8, 10, 13, 18, 23, 24], "state": 2, "activity": -30, "correct": 4904, "wrong": 6584, "is_output": false, "amplitude": 1, "n_features": 18}, {"id": 54, "x": 271, "y": 990, "neighbors": [49, 16, 34, 1, 11, 30, 39, 37], "state": 35, "activity": 3, "correct": 0, "wrong": 0, "is_output": false, "amplitude": 500, "n_features": 18}, {"id": 55, "x": 869, "y": 230, "neighbors": [2, 5, 8, 10, 13, 18, 23, 24], "state": 0, "activity": -32, "correct": 4903, "wrong": 6580, "is_output": false, "amplitude": 1, "n_features": 18}, {"id": 56, "x": 869, "y": 230, "neighbors": [2, 5, 8, 10, 13, 18, 23, 24], "state": 0, "activity": -32, "correct": 4875, "wrong": 6581, "is_output": false, "amplitude": 1, "n_features": 18}, {"id": 57, "x": 869, "y": 230, "neighbors": [2, 5, 8, 10, 13, 18, 23, 24], "state": 0, "activity": -32, "correct": 4388, "wrong": 6551, "is_output": false, "amplitude": 1, "n_features": 18}, {"id": 58, "x": 581, "y": 690, "neighbors": [15, 14, 50, 19, 9, 27, 26, 4], "state": 31, "activity": -1, "correct": 0, "wrong": 0, "is_output": false, "amplitude": 500, "n_features": 18}, {"id": 59, "x": 869, "y": 230, "neighbors": [2, 5, 8, 10, 13, 18, 23, 24], "state": 4, "activity": -28, "correct": 4884, "wrong": 6582, "is_output": false, "amplitude": 1, "n_features": 18}, {"id": 60, "x": 135, "y": 525, "neighbors": [61, 40, 3, 36, 17, 21, 35, 41], "state": 37, "activity": 5, "correct": 0, "wrong": 0, "is_output": false, "amplitude": 500, "n_features": 18}, {"id": 61, "x": 182, "y": 550, "neighbors": [60, 3, 40, 21, 36, 17, 35, 26], "state": 28, "activity": -4, "correct": 0, "wrong": 0, "is_output": false, "amplitude": 500, "n_features": 18}, {"id": 62, "x": 772, "y": 884, "neighbors": [51, 6, 20, 12, 38, 48, 4, 15], "state": 37, "activity": 5, "correct": 0, "wrong": 0, "is_output": false, "amplitude": 500, "n_features": 18}, {"id": 63, "x": 869, "y": 230, "neighbors": [2, 5, 8, 10, 13, 18, 23, 24], "state": 46, "activity": 14, "correct": 27552, "wrong": 7804, "is_output": true, "amplitude": 999, "n_features": 30}], "initial_positions": [{"id": 0, "x": 654, "y": 114}, {"id": 1, "x": 367, "y": 867}, {"id": 2, "x": 388, "y": 276}, {"id": 3, "x": 156, "y": 642}, {"id": 4, "x": 552, "y": 976}, {"id": 5, "x": 602, "y": 567}, {"id": 6, "x": 819, "y": 882}, {"id": 7, "x": 158, "y": 194}, {"id": 8, "x": 468, "y": 323}, {"id": 9, "x": 517, "y": 500}, {"id": 10, "x": 997, "y": 635}, {"id": 11, "x": 118, "y": 898}, {"id": 12, "x": 680, "y": 962}, {"id": 13, "x": 907, "y": 644}, {"id": 14, "x": 496, "y": 641}, {"id": 15, "x": 551, "y": 765}, {"id": 16, "x": 258, "y": 854}, {"id": 17, "x": 104, "y": 713}, {"id": 18, "x": 768, "y": 475}, {"id": 19, "x": 484, "y": 566}, {"id": 20, "x": 714, "y": 966}, {"id": 21, "x": 312, "y": 582}, {"id": 22, "x": 61, "y": 169}, {"id": 23, "x": 418, "y": 341}, {"id": 24, "x": 726, "y": 162}, {"id": 25, "x": 551, "y": 495}, {"id": 26, "x": 346, "y": 638}, {"id": 27, "x": 421, "y": 579}, {"id": 28, "x": 585, "y": 367}, {"id": 29, "x": 850, "y": 168}, {"id": 30, "x": 46, "y": 968}, {"id": 31, "x": 678, "y": 217}, {"id": 32, "x": 538, "y": 116}, {"id": 33, "x": 619, "y": 440}, {"id": 34, "x": 362, "y": 894}, {"id": 35, "x": 145, "y": 758}, {"id": 36, "x": 225, "y": 404}, {"id": 37, "x": 175, "y": 820}, {"id": 38, "x": 974, "y": 791}, {"id": 39, "x": 460, "y": 930}, {"id": 40, "x": 83, "y": 596}, {"id": 41, "x": 38, "y": 677}, {"id": 42, "x": 893, "y": 256}, {"id": 43, "x": 140, "y": 39}, {"id": 44, "x": 629, "y": 361}, {"id": 45, "x": 830, "y": 138}, {"id": 46, "x": 744, "y": 434}, {"id": 47, "x": 370, "y": 392}, {"id": 48, "x": 920, "y": 730}, {"id": 49, "x": 128, "y": 995}, {"id": 50, "x": 674, "y": 639}, {"id": 51, "x": 751, "y": 881}, {"id": 52, "x": 989, "y": 246}, {"id": 53, "x": 813, "y": 347}, {"id": 54, "x": 271, "y": 990}, {"id": 55, "x": 979, "y": 177}, {"id": 56, "x": 946, "y": 452}, {"id": 57, "x": 667, "y": 587}, {"id": 58, "x": 581, "y": 690}, {"id": 59, "x": 706, "y": 120}, {"id": 60, "x": 135, "y": 525}, {"id": 61, "x": 182, "y": 550}, {"id": 62, "x": 772, "y": 884}, {"id": 63, "x": 869, "y": 230}], "training_history": [{"epoch": 0, "correct": 360, "wrong": 114, "unknown": 95}, {"epoch": 5, "correct": 212, "wrong": 357, "unknown": 0}, {"epoch": 10, "correct": 212, "wrong": 357, "unknown": 0}, {"epoch": 15, "correct": 212, "wrong": 357, "unknown": 0}, {"epoch": 20, "correct": 212, "wrong": 357, "unknown": 0}, {"epoch": 25, "correct": 445, "wrong": 34, "unknown": 90}, {"epoch": 30, "correct": 457, "wrong": 20, "unknown": 92}, {"epoch": 35, "correct": 440, "wrong": 24, "unknown": 105}, {"epoch": 40, "correct": 437, "wrong": 21, "unknown": 111}, {"epoch": 45, "correct": 440, "wrong": 40, "unknown": 89}, {"epoch": 50, "correct": 450, "wrong": 26, "unknown": 93}, {"epoch": 55, "correct": 469, "wrong": 15, "unknown": 85}, {"epoch": 60, "correct": 462, "wrong": 15, "unknown": 92}, {"epoch": 65, "correct": 450, "wrong": 27, "unknown": 92}, {"epoch": 70, "correct": 454, "wrong": 18, "unknown": 97}, {"epoch": 75, "correct": 442, "wrong": 29, "unknown": 98}, {"epoch": 79, "correct": 429, "wrong": 59, "unknown": 81}]}, {"name": "Wine Quality", "class_names": ["Other", "Class 0"], "n_samples": 178, "n_features": 13, "n_neurons": 48, "k_neighbors": 6, "n_ticks": 3, "metrics": {"correct": 145, "wrong": 5, "unknown": 28, "coverage_pct": 84, "cond_accuracy_permille": 966}, "neurons": [{"id": 0, "x": 654, "y": 114, "neighbors": [17, 40, 21, 11, 37, 29], "state": 3, "activity": -29, "correct": 0, "wrong": 0, "is_output": false, "amplitude": 500, "n_features": 7}, {"id": 1, "x": 121, "y": 571, "neighbors": [7, 8, 12, 14, 15, 16], "state": 0, "activity": -32, "correct": 7199, "wrong": 651, "is_output": false, "amplitude": 999, "n_features": 7}, {"id": 2, "x": 980, "y": 781, "neighbors": [31, 38, 42, 13, 3, 25], "state": 49, "activity": 17, "correct": 0, "wrong": 0, "is_output": false, "amplitude": 500, "n_features": 7}, {"id": 3, "x": 849, "y": 643, "neighbors": [42, 28, 39, 35, 38, 41], "state": 28, "activity": -4, "correct": 0, "wrong": 0, "is_output": false, "amplitude": 500, "n_features": 7}, {"id": 4, "x": 650, "y": 854, "neighbors": [38, 23, 13, 25, 2, 31], "state": 15, "activity": -17, "correct": 0, "wrong": 0, "is_output": false, "amplitude": 500, "n_features": 7}, {"id": 5, "x": 701, "y": 332, "neighbors": [29, 21, 34, 40, 11, 41], "state": 16, "activity": -16, "correct": 0, "wrong": 0, "is_output": false, "amplitude": 500, "n_features": 7}, {"id": 6, "x": 271, "y": 142, "neighbors": [32, 0, 11, 9, 17, 40], "state": 41, "activity": 9, "correct": 0, "wrong": 0, "is_output": false, "amplitude": 500, "n_features": 7}, {"id": 7, "x": 121, "y": 571, "neighbors": [1, 8, 12, 14, 15, 16], "state": 0, "activity": -32, "correct": 7515, "wrong": 666, "is_output": false, "amplitude": 999, "n_features": 7}, {"id": 8, "x": 121, "y": 571, "neighbors": [1, 7, 12, 14, 15, 16], "state": 0, "activity": -32, "correct": 6984, "wrong": 626, "is_output": false, "amplitude": 999, "n_features": 7}, {"id": 9, "x": 0, "y": 291, "neighbors": [1, 7, 8, 12, 14, 15], "state": 35, "activity": 3, "correct": 1930, "wrong": 438, "is_output": false, "amplitude": 999, "n_features": 7}, {"id": 10, "x": 987, "y": 216, "neighbors": [40, 21, 35, 11, 34, 29], "state": 44, "activity": 12, "correct": 0, "wrong": 0, "is_output": false, "amplitude": 500, "n_features": 7}, {"id": 11, "x": 602, "y": 225, "neighbors": [21, 0, 17, 29, 40, 5], "state": 31, "activity": -1, "correct": 0, "wrong": 0, "is_output": false, "amplitude": 500, "n_features": 7}, {"id": 12, "x": 121, "y": 571, "neighbors": [1, 7, 8, 14, 15, 16], "state": 0, "activity": -32, "correct": 7638, "wrong": 669, "is_output": false, "amplitude": 999, "n_features": 7}, {"id": 13, "x": 819, "y": 882, "neighbors": [38, 23, 25, 4, 2, 31], "state": 34, "activity": 2, "correct": 0, "wrong": 0, "is_output": false, "amplitude": 500, "n_features": 7}, {"id": 14, "x": 121, "y": 571, "neighbors": [1, 7, 8, 12, 15, 16], "state": 0, "activity": -32, "correct": 7372, "wrong": 657, "is_output": false, "amplitude": 999, "n_features": 7}, {"id": 15, "x": 121, "y": 571, "neighbors": [1, 7, 8, 12, 14, 16], "state": 0, "activity": -32, "correct": 6971, "wrong": 591, "is_output": false, "amplitude": 999, "n_features": 7}, {"id": 16, "x": 121, "y": 571, "neighbors": [1, 7, 8, 12, 14, 15], "state": 0, "activity": -32, "correct": 6548, "wrong": 624, "is_output": false, "amplitude": 999, "n_features": 7}, {"id": 17, "x": 634, "y": 83, "neighbors": [0, 40, 11, 32, 37, 21], "state": 30, "activity": -2, "correct": 0, "wrong": 0, "is_output": false, "amplitude": 500, "n_features": 7}, {"id": 18, "x": 121, "y": 571, "neighbors": [1, 7, 8, 12, 14, 15], "state": 0, "activity": -32, "correct": 1627, "wrong": 420, "is_output": false, "amplitude": 999, "n_features": 7}, {"id": 19, "x": 121, "y": 571, "neighbors": [1, 7, 8, 12, 14, 15], "state": 0, "activity": -32, "correct": 2250, "wrong": 447, "is_output": false, "amplitude": 999, "n_features": 7}, {"id": 20, "x": 121, "y": 571, "neighbors": [1, 7, 8, 12, 14, 15], "state": 12, "activity": -20, "correct": 2273, "wrong": 448, "is_output": false, "amplitude": 999, "n_features": 7}, {"id": 21, "x": 652, "y": 268, "neighbors": [29, 11, 5, 0, 40, 17], "state": 29, "activity": -3, "correct": 0, "wrong": 0, "is_output": false, "amplitude": 500, "n_features": 7}, {"id": 22, "x": 121, "y": 571, "neighbors": [1, 7, 8, 12, 14, 15], "state": 47, "activity": 15, "correct": 2273, "wrong": 451, "is_output": false, "amplitude": 999, "n_features": 7}, {"id": 23, "x": 754, "y": 946, "neighbors": [13, 38, 25, 4, 2, 31], "state": 45, "activity": 13, "correct": 0, "wrong": 0, "is_output": false, "amplitude": 500, "n_features": 7}, {"id": 24, "x": 121, "y": 571, "neighbors": [1, 7, 8, 12, 14, 15], "state": 0, "activity": -32, "correct": 1791, "wrong": 426, "is_output": false, "amplitude": 999, "n_features": 7}, {"id": 25, "x": 898, "y": 993, "neighbors": [13, 23, 38, 2, 31, 42], "state": 45, "activity": 13, "correct": 0, "wrong": 0, "is_output": false, "amplitude": 500, "n_features": 7}, {"id": 26, "x": 121, "y": 571, "neighbors": [1, 7, 8, 12, 14, 15], "state": 59, "activity": 27, "correct": 2278, "wrong": 448, "is_output": false, "amplitude": 999, "n_features": 7}, {"id": 27, "x": 121, "y": 571, "neighbors": [1, 7, 8, 12, 14, 15], "state": 0, "activity": -32, "correct": 2144, "wrong": 446, "is_output": false, "amplitude": 999, "n_features": 7}, {"id": 28, "x": 804, "y": 593, "neighbors": [39, 3, 42, 41, 35, 34], "state": 37, "activity": 5, "correct": 0, "wrong": 0, "is_output": false, "amplitude": 500, "n_features": 7}, {"id": 29, "x": 688, "y": 317, "neighbors": [5, 21, 34, 11, 40, 0], "state": 34, "activity": 2, "correct": 0, "wrong": 0, "is_output": false, "amplitude": 500, "n_features": 7}, {"id": 30, "x": 121, "y": 571, "neighbors": [1, 7, 8, 12, 14, 15], "state": 0, "activity": -32, "correct": 2357, "wrong": 448, "is_output": false, "amplitude": 999, "n_features": 7}, {"id": 31, "x": 972, "y": 773, "neighbors": [2, 42, 38, 3, 13, 25], "state": 28, "activity": -4, "correct": 0, "wrong": 0, "is_output": false, "amplitude": 500, "n_features": 7}, {"id": 32, "x": 450, "y": 79, "neighbors": [17, 0, 6, 11, 40, 37], "state": 22, "activity": -10, "correct": 0, "wrong": 0, "is_output": false, "amplitude": 500, "n_features": 7}, {"id": 33, "x": 121, "y": 571, "neighbors": [1, 7, 8, 12, 14, 15], "state": 63, "activity": 31, "correct": 2233, "wrong": 450, "is_output": false, "amplitude": 999, "n_features": 7}, {"id": 34, "x": 771, "y": 399, "neighbors": [41, 5, 29, 35, 39, 28], "state": 47, "activity": 15, "correct": 0, "wrong": 0, "is_output": false, "amplitude": 500, "n_features": 7}, {"id": 35, "x": 860, "y": 478, "neighbors": [41, 39, 34, 28, 42, 3], "state": 27, "activity": -5, "correct": 0, "wrong": 0, "is_output": false, "amplitude": 500, "n_features": 7}, {"id": 36, "x": 121, "y": 571, "neighbors": [1, 7, 8, 12, 14, 15], "state": 0, "activity": -32, "correct": 2294, "wrong": 444, "is_output": false, "amplitude": 999, "n_features": 7}, {"id": 37, "x": 772, "y": 31, "neighbors": [40, 17, 0, 21, 11, 34], "state": 39, "activity": 7, "correct": 0, "wrong": 0, "is_output": false, "amplitude": 500, "n_features": 7}, {"id": 38, "x": 796, "y": 838, "neighbors": [13, 23, 4, 2, 31, 3], "state": 36, "activity": 4, "correct": 0, "wrong": 0, "is_output": false, "amplitude": 500, "n_features": 7}, {"id": 39, "x": 815, "y": 579, "neighbors": [28, 3, 42, 35, 41, 34], "state": 32, "activity": 0, "correct": 0, "wrong": 0, "is_output": false, "amplitude": 500, "n_features": 7}, {"id": 40, "x": 724, "y": 156, "neighbors": [0, 17, 37, 21, 11, 29], "state": 25, "activity": -7, "correct": 0, "wrong": 0, "is_output": false, "amplitude": 500, "n_features": 7}, {"id": 41, "x": 768, "y": 475, "neighbors": [34, 35, 39, 28, 5, 29], "state": 31, "activity": -1, "correct": 0, "wrong": 0, "is_output": false, "amplitude": 500, "n_features": 7}, {"id": 42, "x": 901, "y": 610, "neighbors": [3, 28, 39, 35, 31, 2], "state": 44, "activity": 12, "correct": 0, "wrong": 0, "is_output": false, "amplitude": 500, "n_features": 7}, {"id": 43, "x": 121, "y": 571, "neighbors": [1, 7, 8, 12, 14, 15], "state": 0, "activity": -32, "correct": 2063, "wrong": 448, "is_output": false, "amplitude": 995, "n_features": 7}, {"id": 44, "x": 121, "y": 571, "neighbors": [1, 7, 8, 12, 14, 15], "state": 18, "activity": -14, "correct": 1959, "wrong": 440, "is_output": false, "amplitude": 999, "n_features": 7}, {"id": 45, "x": 121, "y": 571, "neighbors": [1, 7, 8, 12, 14, 15], "state": 0, "activity": -32, "correct": 1743, "wrong": 436, "is_output": false, "amplitude": 999, "n_features": 7}, {"id": 46, "x": 121, "y": 571, "neighbors": [1, 7, 8, 12, 14, 15], "state": 0, "activity": -32, "correct": 1547, "wrong": 428, "is_output": false, "amplitude": 999, "n_features": 7}, {"id": 47, "x": 121, "y": 571, "neighbors": [1, 7, 8, 12, 14, 15], "state": 9, "activity": -23, "correct": 8530, "wrong": 669, "is_output": true, "amplitude": 999, "n_features": 13}], "initial_positions": [{"id": 0, "x": 654, "y": 114}, {"id": 1, "x": 517, "y": 616}, {"id": 2, "x": 980, "y": 781}, {"id": 3, "x": 849, "y": 643}, {"id": 4, "x": 650, "y": 854}, {"id": 5, "x": 701, "y": 332}, {"id": 6, "x": 271, "y": 142}, {"id": 7, "x": 156, "y": 642}, {"id": 8, "x": 445, "y": 161}, {"id": 9, "x": 19, "y": 114}, {"id": 10, "x": 987, "y": 216}, {"id": 11, "x": 602, "y": 225}, {"id": 12, "x": 248, "y": 803}, {"id": 13, "x": 819, "y": 882}, {"id": 14, "x": 51, "y": 667}, {"id": 15, "x": 271, "y": 948}, {"id": 16, "x": 598, "y": 488}, {"id": 17, "x": 634, "y": 83}, {"id": 18, "x": 323, "y": 951}, {"id": 19, "x": 161, "y": 448}, {"id": 20, "x": 288, "y": 619}, {"id": 21, "x": 652, "y": 268}, {"id": 22, "x": 315, "y": 373}, {"id": 23, "x": 754, "y": 946}, {"id": 24, "x": 312, "y": 840}, {"id": 25, "x": 898, "y": 993}, {"id": 26, "x": 45, "y": 725}, {"id": 27, "x": 412, "y": 713}, {"id": 28, "x": 804, "y": 593}, {"id": 29, "x": 688, "y": 317}, {"id": 30, "x": 151, "y": 671}, {"id": 31, "x": 972, "y": 773}, {"id": 32, "x": 450, "y": 79}, {"id": 33, "x": 424, "y": 417}, {"id": 34, "x": 771, "y": 399}, {"id": 35, "x": 860, "y": 478}, {"id": 36, "x": 216, "y": 465}, {"id": 37, "x": 772, "y": 31}, {"id": 38, "x": 796, "y": 838}, {"id": 39, "x": 815, "y": 579}, {"id": 40, "x": 724, "y": 156}, {"id": 41, "x": 768, "y": 475}, {"id": 42, "x": 901, "y": 610}, {"id": 43, "x": 95, "y": 301}, {"id": 44, "x": 236, "y": 123}, {"id": 45, "x": 369, "y": 183}, {"id": 46, "x": 451, "y": 348}, {"id": 47, "x": 121, "y": 571}], "training_history": [{"epoch": 0, "correct": 129, "wrong": 15, "unknown": 34}, {"epoch": 5, "correct": 123, "wrong": 21, "unknown": 34}, {"epoch": 10, "correct": 134, "wrong": 17, "unknown": 27}, {"epoch": 15, "correct": 113, "wrong": 30, "unknown": 35}, {"epoch": 20, "correct": 114, "wrong": 35, "unknown": 29}, {"epoch": 25, "correct": 130, "wrong": 18, "unknown": 30}, {"epoch": 30, "correct": 151, "wrong": 1, "unknown": 26}, {"epoch": 35, "correct": 156, "wrong": 1, "unknown": 21}, {"epoch": 40, "correct": 146, "wrong": 3, "unknown": 29}, {"epoch": 45, "correct": 147, "wrong": 1, "unknown": 30}, {"epoch": 50, "correct": 151, "wrong": 3, "unknown": 24}, {"epoch": 55, "correct": 154, "wrong": 5, "unknown": 19}, {"epoch": 60, "correct": 150, "wrong": 3, "unknown": 25}, {"epoch": 65, "correct": 153, "wrong": 3, "unknown": 22}, {"epoch": 70, "correct": 156, "wrong": 3, "unknown": 19}, {"epoch": 75, "correct": 155, "wrong": 4, "unknown": 19}, {"epoch": 79, "correct": 148, "wrong": 5, "unknown": 25}]}, {"name": "Iris (Setosa vs Rest)", "class_names": ["Non-Setosa", "Setosa"], "n_samples": 150, "n_features": 4, "n_neurons": 32, "k_neighbors": 6, "n_ticks": 3, "metrics": {"correct": 150, "wrong": 0, "unknown": 0, "coverage_pct": 100, "cond_accuracy_permille": 1000}, "neurons": [{"id": 0, "x": 654, "y": 114, "neighbors": [23, 5, 13, 16, 26, 10], "state": 21, "activity": -11, "correct": 0, "wrong": 0, "is_output": false, "amplitude": 500, "n_features": 3}, {"id": 1, "x": 514, "y": 941, "neighbors": [3, 4, 6, 7, 11, 12], "state": 0, "activity": -32, "correct": 2532, "wrong": 832, "is_output": false, "amplitude": 999, "n_features": 3}, {"id": 2, "x": 238, "y": 517, "neighbors": [15, 8, 9, 26, 21, 5], "state": 47, "activity": 15, "correct": 0, "wrong": 0, "is_output": false, "amplitude": 500, "n_features": 3}, {"id": 3, "x": 514, "y": 941, "neighbors": [1, 4, 6, 7, 11, 12], "state": 35, "activity": 3, "correct": 2311, "wrong": 831, "is_output": false, "amplitude": 999, "n_features": 3}, {"id": 4, "x": 514, "y": 941, "neighbors": [1, 3, 6, 7, 11, 12], "state": 64, "activity": 32, "correct": 2314, "wrong": 823, "is_output": false, "amplitude": 999, "n_features": 3}, {"id": 5, "x": 618, "y": 270, "neighbors": [0, 23, 10, 9, 26, 8], "state": 13, "activity": -19, "correct": 0, "wrong": 0, "is_output": false, "amplitude": 500, "n_features": 3}, {"id": 6, "x": 514, "y": 941, "neighbors": [1, 3, 4, 7, 11, 12], "state": 0, "activity": -32, "correct": 2389, "wrong": 831, "is_output": false, "amplitude": 999, "n_features": 3}, {"id": 7, "x": 514, "y": 941, "neighbors": [1, 3, 4, 6, 11, 12], "state": 57, "activity": 25, "correct": 2505, "wrong": 832, "is_output": false, "amplitude": 999, "n_features": 3}, {"id": 8, "x": 379, "y": 363, "neighbors": [9, 15, 26, 2, 5, 21], "state": 23, "activity": -9, "correct": 0, "wrong": 0, "is_output": false, "amplitude": 500, "n_features": 3}, {"id": 9, "x": 473, "y": 388, "neighbors": [8, 15, 26, 5, 23, 2], "state": 9, "activity": -23, "correct": 0, "wrong": 0, "is_output": false, "amplitude": 500, "n_features": 3}, {"id": 10, "x": 824, "y": 323, "neighbors": [5, 13, 16, 0, 9, 23], "state": 41, "activity": 9, "correct": 0, "wrong": 0, "is_output": false, "amplitude": 500, "n_features": 3}, {"id": 11, "x": 514, "y": 941, "neighbors": [1, 3, 4, 6, 7, 12], "state": 0, "activity": -32, "correct": 2566, "wrong": 832, "is_output": false, "amplitude": 999, "n_features": 3}, {"id": 12, "x": 514, "y": 941, "neighbors": [1, 3, 4, 6, 7, 11], "state": 17, "activity": -15, "correct": 2295, "wrong": 831, "is_output": false, "amplitude": 999, "n_features": 3}, {"id": 13, "x": 881, "y": 112, "neighbors": [16, 0, 10, 23, 5, 26], "state": 48, "activity": 16, "correct": 0, "wrong": 0, "is_output": false, "amplitude": 500, "n_features": 3}, {"id": 14, "x": 514, "y": 941, "neighbors": [1, 3, 4, 6, 7, 11], "state": 0, "activity": -32, "correct": 1950, "wrong": 818, "is_output": false, "amplitude": 984, "n_features": 3}, {"id": 15, "x": 300, "y": 445, "neighbors": [2, 8, 9, 26, 21, 5], "state": 49, "activity": 17, "correct": 0, "wrong": 0, "is_output": false, "amplitude": 500, "n_features": 3}, {"id": 16, "x": 934, "y": 108, "neighbors": [13, 0, 10, 23, 5, 26], "state": 27, "activity": -5, "correct": 0, "wrong": 0, "is_output": false, "amplitude": 500, "n_features": 3}, {"id": 17, "x": 514, "y": 941, "neighbors": [1, 3, 4, 6, 7, 11], "state": 0, "activity": -32, "correct": 1999, "wrong": 819, "is_output": false, "amplitude": 984, "n_features": 3}, {"id": 18, "x": 514, "y": 941, "neighbors": [1, 3, 4, 6, 7, 11], "state": 0, "activity": -32, "correct": 2208, "wrong": 821, "is_output": false, "amplitude": 984, "n_features": 3}, {"id": 19, "x": 514, "y": 941, "neighbors": [1, 3, 4, 6, 7, 11], "state": 0, "activity": -32, "correct": 2009, "wrong": 817, "is_output": false, "amplitude": 984, "n_features": 3}, {"id": 20, "x": 514, "y": 941, "neighbors": [1, 3, 4, 6, 7, 11], "state": 0, "activity": -32, "correct": 2108, "wrong": 821, "is_output": false, "amplitude": 984, "n_features": 3}, {"id": 21, "x": 346, "y": 21, "neighbors": [26, 23, 8, 0, 15, 9], "state": 0, "activity": -32, "correct": 0, "wrong": 0, "is_output": false, "amplitude": 500, "n_features": 3}, {"id": 22, "x": 514, "y": 941, "neighbors": [1, 3, 4, 6, 7, 11], "state": 0, "activity": -32, "correct": 2183, "wrong": 821, "is_output": false, "amplitude": 984, "n_features": 3}, {"id": 23, "x": 552, "y": 135, "neighbors": [0, 26, 5, 21, 9, 13], "state": 25, "activity": -7, "correct": 0, "wrong": 0, "is_output": false, "amplitude": 500, "n_features": 3}, {"id": 24, "x": 514, "y": 941, "neighbors": [1, 3, 4, 6, 7, 11], "state": 0, "activity": -32, "correct": 1962, "wrong": 820, "is_output": false, "amplitude": 984, "n_features": 3}, {"id": 25, "x": 514, "y": 941, "neighbors": [1, 3, 4, 6, 7, 11], "state": 0, "activity": -32, "correct": 2197, "wrong": 821, "is_output": false, "amplitude": 984, "n_features": 3}, {"id": 26, "x": 432, "y": 187, "neighbors": [23, 8, 9, 21, 5, 0], "state": 26, "activity": -6, "correct": 0, "wrong": 0, "is_output": false, "amplitude": 500, "n_features": 3}, {"id": 27, "x": 514, "y": 941, "neighbors": [1, 3, 4, 6, 7, 11], "state": 0, "activity": -32, "correct": 1992, "wrong": 821, "is_output": false, "amplitude": 984, "n_features": 3}, {"id": 28, "x": 514, "y": 941, "neighbors": [1, 3, 4, 6, 7, 11], "state": 0, "activity": -32, "correct": 2195, "wrong": 821, "is_output": false, "amplitude": 984, "n_features": 3}, {"id": 29, "x": 514, "y": 941, "neighbors": [1, 3, 4, 6, 7, 11], "state": 0, "activity": -32, "correct": 1997, "wrong": 821, "is_output": false, "amplitude": 984, "n_features": 3}, {"id": 30, "x": 514, "y": 941, "neighbors": [1, 3, 4, 6, 7, 11], "state": 0, "activity": -32, "correct": 2188, "wrong": 821, "is_output": false, "amplitude": 984, "n_features": 3}, {"id": 31, "x": 514, "y": 941, "neighbors": [1, 3, 4, 6, 7, 11], "state": 14, "activity": -18, "correct": 2613, "wrong": 832, "is_output": true, "amplitude": 999, "n_features": 4}], "initial_positions": [{"id": 0, "x": 654, "y": 114}, {"id": 1, "x": 692, "y": 758}, {"id": 2, "x": 238, "y": 517}, {"id": 3, "x": 828, "y": 890}, {"id": 4, "x": 980, "y": 781}, {"id": 5, "x": 618, "y": 270}, {"id": 6, "x": 849, "y": 643}, {"id": 7, "x": 81, "y": 875}, {"id": 8, "x": 379, "y": 363}, {"id": 9, "x": 473, "y": 388}, {"id": 10, "x": 824, "y": 323}, {"id": 11, "x": 405, "y": 905}, {"id": 12, "x": 919, "y": 597}, {"id": 13, "x": 881, "y": 112}, {"id": 14, "x": 610, "y": 479}, {"id": 15, "x": 300, "y": 445}, {"id": 16, "x": 934, "y": 108}, {"id": 17, "x": 613, "y": 331}, {"id": 18, "x": 246, "y": 899}, {"id": 19, "x": 969, "y": 562}, {"id": 20, "x": 687, "y": 665}, {"id": 21, "x": 346, "y": 21}, {"id": 22, "x": 69, "y": 927}, {"id": 23, "x": 552, "y": 135}, {"id": 24, "x": 674, "y": 441}, {"id": 25, "x": 412, "y": 745}, {"id": 26, "x": 432, "y": 187}, {"id": 27, "x": 667, "y": 553}, {"id": 28, "x": 218, "y": 885}, {"id": 29, "x": 948, "y": 802}, {"id": 30, "x": 222, "y": 991}, {"id": 31, "x": 514, "y": 941}], "training_history": [{"epoch": 0, "correct": 142, "wrong": 2, "unknown": 6}, {"epoch": 5, "correct": 100, "wrong": 50, "unknown": 0}, {"epoch": 10, "correct": 100, "wrong": 50, "unknown": 0}, {"epoch": 15, "correct": 100, "wrong": 50, "unknown": 0}, {"epoch": 20, "correct": 100, "wrong": 50, "unknown": 0}, {"epoch": 25, "correct": 125, "wrong": 2, "unknown": 23}, {"epoch": 30, "correct": 121, "wrong": 3, "unknown": 26}, {"epoch": 35, "correct": 117, "wrong": 6, "unknown": 27}, {"epoch": 40, "correct": 122, "wrong": 4, "unknown": 24}, {"epoch": 45, "correct": 122, "wrong": 7, "unknown": 21}, {"epoch": 50, "correct": 127, "wrong": 4, "unknown": 19}, {"epoch": 55, "correct": 138, "wrong": 0, "unknown": 12}, {"epoch": 59, "correct": 141, "wrong": 0, "unknown": 9}]}, {"name": "Digits (0 vs 1)", "class_names": ["Digit 0", "Digit 1"], "n_samples": 360, "n_features": 64, "n_neurons": 64, "k_neighbors": 8, "n_ticks": 3, "metrics": {"correct": 359, "wrong": 0, "unknown": 1, "coverage_pct": 99, "cond_accuracy_permille": 1000}, "neurons": [{"id": 0, "x": 575, "y": 211, "neighbors": [1, 3, 4, 7, 9, 10, 11, 12], "state": 0, "activity": -32, "correct": 5543, "wrong": 3178, "is_output": false, "amplitude": 999, "n_features": 38}, {"id": 1, "x": 575, "y": 211, "neighbors": [0, 3, 4, 7, 9, 10, 11, 12], "state": 0, "activity": -32, "correct": 4917, "wrong": 3169, "is_output": false, "amplitude": 999, "n_features": 38}, {"id": 2, "x": 896, "y": 736, "neighbors": [38, 22, 47, 59, 27, 34, 6, 8], "state": 31, "activity": -1, "correct": 0, "wrong": 0, "is_output": false, "amplitude": 500, "n_features": 38}, {"id": 3, "x": 575, "y": 211, "neighbors": [0, 1, 4, 7, 9, 10, 11, 12], "state": 0, "activity": -32, "correct": 5431, "wrong": 3175, "is_output": false, "amplitude": 999, "n_features": 38}, {"id": 4, "x": 575, "y": 211, "neighbors": [0, 1, 3, 7, 9, 10, 11, 12], "state": 0, "activity": -32, "correct": 5030, "wrong": 3176, "is_output": false, "amplitude": 999, "n_features": 38}, {"id": 5, "x": 118, "y": 911, "neighbors": [62, 30, 46, 31, 45, 56, 61, 29], "state": 33, "activity": 1, "correct": 0, "wrong": 0, "is_output": false, "amplitude": 500, "n_features": 38}, {"id": 6, "x": 836, "y": 940, "neighbors": [59, 47, 16, 38, 2, 49, 22, 34], "state": 33, "activity": 1, "correct": 0, "wrong": 0, "is_output": false, "amplitude": 500, "n_features": 38}, {"id": 7, "x": 575, "y": 211, "neighbors": [0, 1, 3, 4, 9, 10, 11, 12], "state": 64, "activity": 32, "correct": 5429, "wrong": 3176, "is_output": false, "amplitude": 999, "n_features": 38}, {"id": 8, "x": 882, "y": 486, "neighbors": [55, 27, 2, 38, 47, 22, 59, 34], "state": 35, "activity": 3, "correct": 0, "wrong": 0, "is_output": false, "amplitude": 500, "n_features": 38}, {"id": 9, "x": 575, "y": 211, "neighbors": [0, 1, 3, 4, 7, 10, 11, 12], "state": 0, "activity": -32, "correct": 5368, "wrong": 3179, "is_output": false, "amplitude": 999, "n_features": 38}, {"id": 10, "x": 575, "y": 211, "neighbors": [0, 1, 3, 4, 7, 9, 11, 12], "state": 64, "activity": 32, "correct": 5305, "wrong": 3179, "is_output": false, "amplitude": 999, "n_features": 38}, {"id": 11, "x": 575, "y": 211, "neighbors": [0, 1, 3, 4, 7, 9, 10, 12], "state": 64, "activity": 32, "correct": 5379, "wrong": 3179, "is_output": false, "amplitude": 999, "n_features": 38}, {"id": 12, "x": 575, "y": 211, "neighbors": [0, 1, 3, 4, 7, 9, 10, 11], "state": 0, "activity": -32, "correct": 4984, "wrong": 3157, "is_output": false, "amplitude": 999, "n_features": 38}, {"id": 13, "x": 575, "y": 211, "neighbors": [0, 1, 3, 4, 7, 9, 10, 11], "state": 0, "activity": -32, "correct": 3445, "wrong": 3155, "is_output": false, "amplitude": 3, "n_features": 38}, {"id": 14, "x": 575, "y": 211, "neighbors": [0, 1, 3, 4, 7, 9, 10, 11], "state": 0, "activity": -32, "correct": 3440, "wrong": 3154, "is_output": false, "amplitude": 3, "n_features": 38}, {"id": 15, "x": 575, "y": 211, "neighbors": [0, 1, 3, 4, 7, 9, 10, 11], "state": 0, "activity": -32, "correct": 4077, "wrong": 3163, "is_output": false, "amplitude": 3, "n_features": 38}, {"id": 16, "x": 654, "y": 985, "neighbors": [49, 29, 6, 34, 58, 59, 19, 47], "state": 28, "activity": -4, "correct": 0, "wrong": 0, "is_output": false, "amplitude": 500, "n_features": 38}, {"id": 17, "x": 14, "y": 270, "neighbors": [61, 56, 43, 46, 30, 0, 1, 3], "state": 35, "activity": 3, "correct": 0, "wrong": 0, "is_output": false, "amplitude": 500, "n_features": 38}, {"id": 18, "x": 575, "y": 211, "neighbors": [0, 1, 3, 4, 7, 9, 10, 11], "state": 0, "activity": -32, "correct": 3879, "wrong": 3157, "is_output": false, "amplitude": 3, "n_features": 38}, {"id": 19, "x": 561, "y": 729, "neighbors": [58, 34, 29, 38, 27, 49, 45, 2], "state": 23, "activity": -9, "correct": 0, "wrong": 0, "is_output": false, "amplitude": 500, "n_features": 38}, {"id": 20, "x": 575, "y": 211, "neighbors": [0, 1, 3, 4, 7, 9, 10, 11], "state": 0, "activity": -32, "correct": 3911, "wrong": 3164, "is_output": false, "amplitude": 3, "n_features": 38}, {"id": 21, "x": 575, "y": 211, "neighbors": [0, 1, 3, 4, 7, 9, 10, 11], "state": 0, "activity": -32, "correct": 4069, "wrong": 3164, "is_output": false, "amplitude": 3, "n_features": 38}, {"id": 22, "x": 974, "y": 791, "neighbors": [2, 47, 59, 38, 55, 6, 34, 27], "state": 25, "activity": -7, "correct": 0, "wrong": 0, "is_output": false, "amplitude": 500, "n_features": 38}, {"id": 23, "x": 575, "y": 211, "neighbors": [0, 1, 3, 4, 7, 9, 10, 11], "state": 0, "activity": -32, "correct": 3949, "wrong": 3162, "is_output": false, "amplitude": 3, "n_features": 38}, {"id": 24, "x": 575, "y": 211, "neighbors": [0, 1, 3, 4, 7, 9, 10, 11], "state": 0, "activity": -32, "correct": 4056, "wrong": 3164, "is_output": false, "amplitude": 3, "n_features": 38}, {"id": 25, "x": 575, "y": 211, "neighbors": [0, 1, 3, 4, 7, 9, 10, 11], "state": 0, "activity": -32, "correct": 3657, "wrong": 3160, "is_output": false, "amplitude": 3, "n_features": 38}, {"id": 26, "x": 575, "y": 211, "neighbors": [0, 1, 3, 4, 7, 9, 10, 11], "state": 0, "activity": -32, "correct": 4067, "wrong": 3164, "is_output": false, "amplitude": 3, "n_features": 38}, {"id": 27, "x": 797, "y": 660, "neighbors": [38, 2, 34, 8, 47, 55, 19, 22], "state": 32, "activity": 0, "correct": 0, "wrong": 0, "is_output": false, "amplitude": 500, "n_features": 38}, {"id": 28, "x": 575, "y": 211, "neighbors": [0, 1, 3, 4, 7, 9, 10, 11], "state": 0, "activity": -32, "correct": 3929, "wrong": 3163, "is_output": false, "amplitude": 3, "n_features": 38}, {"id": 29, "x": 509, "y": 910, "neighbors": [58, 49, 45, 16, 19, 31, 34, 6], "state": 39, "activity": 7, "correct": 0, "wrong": 0, "is_output": false, "amplitude": 500, "n_features": 38}, {"id": 30, "x": 8, "y": 867, "neighbors": [62, 5, 61, 46, 45, 56, 31, 29], "state": 28, "activity": -4, "correct": 0, "wrong": 0, "is_output": false, "amplitude": 500, "n_features": 38}, {"id": 31, "x": 271, "y": 990, "neighbors": [45, 5, 62, 29, 49, 30, 16, 46], "state": 29, "activity": -3, "correct": 0, "wrong": 0, "is_output": false, "amplitude": 500, "n_features": 38}, {"id": 32, "x": 575, "y": 211, "neighbors": [0, 1, 3, 4, 7, 9, 10, 11], "state": 0, "activity": -32, "correct": 3445, "wrong": 3155, "is_output": false, "amplitude": 3, "n_features": 38}, {"id": 33, "x": 575, "y": 211, "neighbors": [0, 1, 3, 4, 7, 9, 10, 11], "state": 0, "activity": -32, "correct": 3926, "wrong": 3163, "is_output": false, "amplitude": 3, "n_features": 38}, {"id": 34, "x": 696, "y": 772, "neighbors": [19, 58, 38, 27, 2, 16, 47, 22], "state": 33, "activity": 1, "correct": 0, "wrong": 0, "is_output": false, "amplitude": 500, "n_features": 38}, {"id": 35, "x": 575, "y": 211, "neighbors": [0, 1, 3, 4, 7, 9, 10, 11], "state": 0, "activity": -32, "correct": 4078, "wrong": 3164, "is_output": false, "amplitude": 3, "n_features": 38}, {"id": 36, "x": 575, "y": 211, "neighbors": [0, 1, 3, 4, 7, 9, 10, 11], "state": 0, "activity": -32, "correct": 3948, "wrong": 3162, "is_output": false, "amplitude": 3, "n_features": 38}, {"id": 37, "x": 575, "y": 211, "neighbors": [0, 1, 3, 4, 7, 9, 10, 11], "state": 0, "activity": -32, "correct": 3956, "wrong": 3163, "is_output": false, "amplitude": 3, "n_features": 38}, {"id": 38, "x": 832, "y": 714, "neighbors": [2, 27, 34, 47, 22, 59, 6, 8], "state": 38, "activity": 6, "correct": 0, "wrong": 0, "is_output": false, "amplitude": 500, "n_features": 38}, {"id": 39, "x": 575, "y": 211, "neighbors": [0, 1, 3, 4, 7, 9, 10, 11], "state": 0, "activity": -32, "correct": 4041, "wrong": 3164, "is_output": false, "amplitude": 3, "n_features": 38}, {"id": 40, "x": 575, "y": 211, "neighbors": [0, 1, 3, 4, 7, 9, 10, 11], "state": 0, "activity": -32, "correct": 3881, "wrong": 3162, "is_output": false, "amplitude": 3, "n_features": 38}, {"id": 41, "x": 575, "y": 211, "neighbors": [0, 1, 3, 4, 7, 9, 10, 11], "state": 0, "activity": -32, "correct": 3709, "wrong": 3162, "is_output": false, "amplitude": 3, "n_features": 38}, {"id": 42, "x": 575, "y": 211, "neighbors": [0, 1, 3, 4, 7, 9, 10, 11], "state": 0, "activity": -32, "correct": 3897, "wrong": 3162, "is_output": false, "amplitude": 3, "n_features": 38}, {"id": 43, "x": 409, "y": 128, "neighbors": [0, 1, 3, 4, 7, 9, 10, 11], "state": 0, "activity": -32, "correct": 3440, "wrong": 3155, "is_output": false, "amplitude": 3, "n_features": 38}, {"id": 44, "x": 575, "y": 211, "neighbors": [0, 1, 3, 4, 7, 9, 10, 11], "state": 0, "activity": -32, "correct": 4025, "wrong": 3162, "is_output": false, "amplitude": 3, "n_features": 38}, {"id": 45, "x": 366, "y": 870, "neighbors": [29, 31, 58, 5, 62, 19, 30, 49], "state": 32, "activity": 0, "correct": 0, "wrong": 0, "is_output": false, "amplitude": 500, "n_features": 38}, {"id": 46, "x": 91, "y": 748, "neighbors": [61, 56, 62, 5, 30, 45, 31, 58], "state": 35, "activity": 3, "correct": 0, "wrong": 0, "is_output": false, "amplitude": 500, "n_features": 38}, {"id": 47, "x": 881, "y": 859, "neighbors": [59, 6, 2, 22, 38, 34, 27, 16], "state": 34, "activity": 2, "correct": 0, "wrong": 0, "is_output": false, "amplitude": 500, "n_features": 38}, {"id": 48, "x": 575, "y": 211, "neighbors": [0, 1, 3, 4, 7, 9, 10, 11], "state": 0, "activity": -32, "correct": 4038, "wrong": 3164, "is_output": false, "amplitude": 3, "n_features": 38}, {"id": 49, "x": 605, "y": 995, "neighbors": [16, 29, 6, 58, 19, 34, 31, 45], "state": 33, "activity": 1, "correct": 0, "wrong": 0, "is_output": false, "amplitude": 500, "n_features": 38}, {"id": 50, "x": 575, "y": 211, "neighbors": [0, 1, 3, 4, 7, 9, 10, 11], "state": 0, "activity": -32, "correct": 3456, "wrong": 3157, "is_output": false, "amplitude": 3, "n_features": 38}, {"id": 51, "x": 575, "y": 211, "neighbors": [0, 1, 3, 4, 7, 9, 10, 11], "state": 0, "activity": -32, "correct": 3918, "wrong": 3164, "is_output": false, "amplitude": 3, "n_features": 38}, {"id": 52, "x": 575, "y": 211, "neighbors": [0, 1, 3, 4, 7, 9, 10, 11], "state": 0, "activity": -32, "correct": 4040, "wrong": 3162, "is_output": false, "amplitude": 3, "n_features": 38}, {"id": 53, "x": 575, "y": 211, "neighbors": [0, 1, 3, 4, 7, 9, 10, 11], "state": 0, "activity": -32, "correct": 3669, "wrong": 3162, "is_output": false, "amplitude": 3, "n_features": 38}, {"id": 54, "x": 575, "y": 211, "neighbors": [0, 1, 3, 4, 7, 9, 10, 11], "state": 0, "activity": -32, "correct": 3952, "wrong": 3163, "is_output": false, "amplitude": 3, "n_features": 38}, {"id": 55, "x": 988, "y": 548, "neighbors": [8, 22, 2, 27, 38, 47, 59, 34], "state": 38, "activity": 6, "correct": 0, "wrong": 0, "is_output": false, "amplitude": 500, "n_features": 38}, {"id": 56, "x": 147, "y": 633, "neighbors": [46, 61, 5, 62, 30, 45, 31, 17], "state": 24, "activity": -8, "correct": 0, "wrong": 0, "is_output": false, "amplitude": 500, "n_features": 38}, {"id": 57, "x": 575, "y": 211, "neighbors": [0, 1, 3, 4, 7, 9, 10, 11], "state": 0, "activity": -32, "correct": 4039, "wrong": 3164, "is_output": false, "amplitude": 3, "n_features": 38}, {"id": 58, "x": 529, "y": 783, "neighbors": [19, 29, 34, 45, 49, 16, 38, 27], "state": 31, "activity": -1, "correct": 0, "wrong": 0, "is_output": false, "amplitude": 500, "n_features": 38}, {"id": 59, "x": 891, "y": 874, "neighbors": [47, 6, 2, 22, 38, 34, 27, 16], "state": 30, "activity": -2, "correct": 0, "wrong": 0, "is_output": false, "amplitude": 500, "n_features": 38}, {"id": 60, "x": 575, "y": 211, "neighbors": [0, 1, 3, 4, 7, 9, 10, 11], "state": 0, "activity": -32, "correct": 3437, "wrong": 3155, "is_output": false, "amplitude": 3, "n_features": 38}, {"id": 61, "x": 13, "y": 687, "neighbors": [46, 30, 56, 62, 5, 17, 45, 31], "state": 32, "activity": 0, "correct": 0, "wrong": 0, "is_output": false, "amplitude": 500, "n_features": 38}, {"id": 62, "x": 115, "y": 908, "neighbors": [5, 30, 46, 31, 45, 56, 61, 29], "state": 28, "activity": -4, "correct": 0, "wrong": 0, "is_output": false, "amplitude": 500, "n_features": 38}, {"id": 63, "x": 575, "y": 211, "neighbors": [0, 1, 3, 4, 7, 9, 10, 11], "state": 18, "activity": -14, "correct": 5702, "wrong": 3179, "is_output": true, "amplitude": 999, "n_features": 64}], "initial_positions": [{"id": 0, "x": 654, "y": 114}, {"id": 1, "x": 273, "y": 718}, {"id": 2, "x": 896, "y": 736}, {"id": 3, "x": 927, "y": 32}, {"id": 4, "x": 753, "y": 555}, {"id": 5, "x": 118, "y": 911}, {"id": 6, "x": 836, "y": 940}, {"id": 7, "x": 853, "y": 0}, {"id": 8, "x": 882, "y": 486}, {"id": 9, "x": 658, "y": 438}, {"id": 10, "x": 842, "y": 501}, {"id": 11, "x": 719, "y": 464}, {"id": 12, "x": 930, "y": 453}, {"id": 13, "x": 93, "y": 234}, {"id": 14, "x": 95, "y": 230}, {"id": 15, "x": 739, "y": 147}, {"id": 16, "x": 654, "y": 985}, {"id": 17, "x": 14, "y": 270}, {"id": 18, "x": 994, "y": 21}, {"id": 19, "x": 561, "y": 729}, {"id": 20, "x": 826, "y": 439}, {"id": 21, "x": 785, "y": 140}, {"id": 22, "x": 974, "y": 791}, {"id": 23, "x": 793, "y": 346}, {"id": 24, "x": 546, "y": 244}, {"id": 25, "x": 623, "y": 540}, {"id": 26, "x": 810, "y": 204}, {"id": 27, "x": 797, "y": 660}, {"id": 28, "x": 316, "y": 407}, {"id": 29, "x": 509, "y": 910}, {"id": 30, "x": 8, "y": 867}, {"id": 31, "x": 271, "y": 990}, {"id": 32, "x": 80, "y": 354}, {"id": 33, "x": 279, "y": 197}, {"id": 34, "x": 696, "y": 772}, {"id": 35, "x": 541, "y": 130}, {"id": 36, "x": 307, "y": 385}, {"id": 37, "x": 320, "y": 423}, {"id": 38, "x": 832, "y": 714}, {"id": 39, "x": 741, "y": 80}, {"id": 40, "x": 585, "y": 533}, {"id": 41, "x": 689, "y": 511}, {"id": 42, "x": 713, "y": 463}, {"id": 43, "x": 119, "y": 187}, {"id": 44, "x": 460, "y": 269}, {"id": 45, "x": 366, "y": 870}, {"id": 46, "x": 91, "y": 748}, {"id": 47, "x": 881, "y": 859}, {"id": 48, "x": 907, "y": 120}, {"id": 49, "x": 605, "y": 995}, {"id": 50, "x": 123, "y": 548}, {"id": 51, "x": 699, "y": 436}, {"id": 52, "x": 717, "y": 360}, {"id": 53, "x": 654, "y": 579}, {"id": 54, "x": 997, "y": 194}, {"id": 55, "x": 988, "y": 548}, {"id": 56, "x": 147, "y": 633}, {"id": 57, "x": 564, "y": 358}, {"id": 58, "x": 529, "y": 783}, {"id": 59, "x": 891, "y": 874}, {"id": 60, "x": 19, "y": 233}, {"id": 61, "x": 13, "y": 687}, {"id": 62, "x": 115, "y": 908}, {"id": 63, "x": 575, "y": 211}], "training_history": [{"epoch": 0, "correct": 333, "wrong": 2, "unknown": 25}, {"epoch": 5, "correct": 178, "wrong": 182, "unknown": 0}, {"epoch": 10, "correct": 178, "wrong": 182, "unknown": 0}, {"epoch": 15, "correct": 178, "wrong": 182, "unknown": 0}, {"epoch": 20, "correct": 178, "wrong": 182, "unknown": 0}, {"epoch": 25, "correct": 353, "wrong": 0, "unknown": 7}, {"epoch": 30, "correct": 346, "wrong": 0, "unknown": 14}, {"epoch": 35, "correct": 341, "wrong": 0, "unknown": 19}, {"epoch": 40, "correct": 346, "wrong": 0, "unknown": 14}, {"epoch": 45, "correct": 344, "wrong": 1, "unknown": 15}, {"epoch": 50, "correct": 342, "wrong": 3, "unknown": 15}, {"epoch": 55, "correct": 346, "wrong": 1, "unknown": 13}, {"epoch": 60, "correct": 349, "wrong": 1, "unknown": 10}, {"epoch": 65, "correct": 348, "wrong": 0, "unknown": 12}, {"epoch": 70, "correct": 344, "wrong": 0, "unknown": 16}, {"epoch": 75, "correct": 349, "wrong": 1, "unknown": 10}, {"epoch": 79, "correct": 337, "wrong": 1, "unknown": 22}]}], "model_info": {"name": "VoidCloud v3", "description": "Graph-based neural network, no layers, self-organizing topology", "W_DENOM": 128, "S_DENOM": 64, "POS_SCALE": 1000, "FOR_THRESH": 36, "AG_THRESH": 28}};
+
+const datasets = DATA.datasets;
+let currentIdx = 0;
+
+// ============================================================
+// TABS
+// ============================================================
+const tabsEl = document.getElementById('tabs');
+datasets.forEach((ds, i) => {
+  const btn = document.createElement('button');
+  btn.className = 'tab' + (i === 0 ? ' active' : '');
+  btn.textContent = ds.name;
+  btn.onclick = () => selectDataset(i);
+  tabsEl.appendChild(btn);
+});
+
+function selectDataset(idx) {
+  currentIdx = idx;
+  document.querySelectorAll('.tab').forEach((t, i) => {
+    t.classList.toggle('active', i === idx);
+  });
+  render();
+}
+
+// ============================================================
+// CANVAS DRAWING
+// ============================================================
+const canvas = document.getElementById('cloud');
+const ctx = canvas.getContext('2d');
+const tooltip = document.getElementById('tooltip');
+
+// HiDPI
+function setupCanvas() {
+  const dpr = window.devicePixelRatio || 1;
+  const rect = canvas.getBoundingClientRect();
+  canvas.width = rect.width * dpr;
+  canvas.height = rect.height * dpr;
+  ctx.scale(dpr, dpr);
+  return { w: rect.width, h: rect.height };
+}
+
+function neuronColor(n, ds) {
+  if (n.is_output) return '#ce93d8';
+  const ratio = n.correct / Math.max(1, n.correct + n.wrong);
+  if (ratio > 0.7) {
+    const g = Math.floor(130 + ratio * 100);
+    return `rgb(80, ${g}, 100)`;
+  } else if (ratio > 0.4) {
+    return `rgb(180, 160, 80)`;
+  } else {
+    const r = Math.floor(180 + (1 - ratio) * 60);
+    return `rgb(${r}, 80, 80)`;
+  }
+}
+
+function neuronRadius(n) {
+  if (n.is_output) return 12;
+  const total = n.correct + n.wrong;
+  return Math.max(3, Math.min(9, 3 + Math.sqrt(total) * 0.03));
+}
+
+function drawCloud(ds) {
+  const { w, h } = setupCanvas();
+  const pad = 50;
+  const neurons = ds.neurons;
+
+  // Map positions to canvas
+  const posScale = DATA.model_info.POS_SCALE;
+  const mapX = (x) => pad + (x / posScale) * (w - 2 * pad);
+  const mapY = (y) => pad + (y / posScale) * (h - 2 * pad);
+
+  // Build index
+  const idxMap = {};
+  neurons.forEach((n, i) => idxMap[n.id] = i);
+
+  // Clear
+  ctx.fillStyle = '#08080e';
+  ctx.fillRect(0, 0, w, h);
+
+  // Draw grid (subtle)
+  ctx.strokeStyle = '#111118';
+  ctx.lineWidth = 0.5;
+  for (let gx = 0; gx <= 10; gx++) {
+    const x = pad + (gx / 10) * (w - 2 * pad);
+    ctx.beginPath(); ctx.moveTo(x, pad); ctx.lineTo(x, h - pad); ctx.stroke();
+  }
+  for (let gy = 0; gy <= 10; gy++) {
+    const y = pad + (gy / 10) * (h - 2 * pad);
+    ctx.beginPath(); ctx.moveTo(pad, y); ctx.lineTo(w - pad, y); ctx.stroke();
+  }
+
+  // Draw connections
+  neurons.forEach(n => {
+    const x1 = mapX(n.x), y1 = mapY(n.y);
+    n.neighbors.forEach(nid => {
+      if (nid in idxMap) {
+        const nb = neurons[idxMap[nid]];
+        const x2 = mapX(nb.x), y2 = mapY(nb.y);
+        ctx.strokeStyle = n.is_output || nb.is_output ? 'rgba(206,147,216,0.15)' : 'rgba(100,120,180,0.07)';
+        ctx.lineWidth = n.is_output || nb.is_output ? 1.2 : 0.6;
+        ctx.beginPath();
+        ctx.moveTo(x1, y1);
+        ctx.lineTo(x2, y2);
+        ctx.stroke();
+      }
+    });
+  });
+
+  // Draw neurons
+  neurons.forEach(n => {
+    const x = mapX(n.x), y = mapY(n.y);
+    const r = neuronRadius(n);
+    const col = neuronColor(n, ds);
+
+    // Glow for output
+    if (n.is_output) {
+      const grad = ctx.createRadialGradient(x, y, r, x, y, r * 4);
+      grad.addColorStop(0, 'rgba(206,147,216,0.25)');
+      grad.addColorStop(1, 'rgba(206,147,216,0)');
+      ctx.fillStyle = grad;
+      ctx.beginPath();
+      ctx.arc(x, y, r * 4, 0, Math.PI * 2);
+      ctx.fill();
+    }
+
+    // Neuron body
+    ctx.fillStyle = col;
+    ctx.beginPath();
+    ctx.arc(x, y, r, 0, Math.PI * 2);
+    ctx.fill();
+
+    // Border
+    ctx.strokeStyle = n.is_output ? '#ce93d8' : 'rgba(255,255,255,0.1)';
+    ctx.lineWidth = n.is_output ? 2 : 0.5;
+    ctx.stroke();
+
+    // Feature count indicator (tiny inner ring)
+    if (!n.is_output) {
+      const frac = n.n_features / ds.n_features;
+      ctx.strokeStyle = `rgba(138,180,248,${0.2 + frac * 0.4})`;
+      ctx.lineWidth = 1;
+      ctx.beginPath();
+      ctx.arc(x, y, r + 2, -Math.PI / 2, -Math.PI / 2 + Math.PI * 2 * frac);
+      ctx.stroke();
+    }
+  });
+
+  // Output label
+  const outN = neurons.find(n => n.is_output);
+  if (outN) {
+    ctx.fillStyle = '#ce93d8';
+    ctx.font = '10px "SF Mono", "Fira Code", monospace';
+    ctx.textAlign = 'center';
+    ctx.fillText('OUTPUT', mapX(outN.x), mapY(outN.y) - 18);
+  }
+
+  // Title
+  ctx.fillStyle = '#444460';
+  ctx.font = '11px "SF Mono", "Fira Code", monospace';
+  ctx.textAlign = 'left';
+  ctx.fillText(`${ds.n_neurons} neurons · k=${ds.k_neighbors} · t=${ds.n_ticks}`, pad, h - 16);
+
+  // Store mapped positions for hover
+  canvas._neurons = neurons.map(n => ({
+    ...n,
+    cx: mapX(n.x),
+    cy: mapY(n.y),
+    r: neuronRadius(n),
+  }));
+}
+
+// ============================================================
+// HOVER / TOOLTIP
+// ============================================================
+canvas.addEventListener('mousemove', (e) => {
+  const rect = canvas.getBoundingClientRect();
+  const mx = e.clientX - rect.left;
+  const my = e.clientY - rect.top;
+
+  if (!canvas._neurons) return;
+
+  let hit = null;
+  for (const n of canvas._neurons) {
+    const dx = mx - n.cx, dy = my - n.cy;
+    if (dx * dx + dy * dy < (n.r + 4) * (n.r + 4)) {
+      hit = n;
+      break;
+    }
+  }
+
+  if (hit) {
+    const total = hit.correct + hit.wrong;
+    const acc = total > 0 ? ((hit.correct * 1000 / total) | 0) : 0;
+    tooltip.innerHTML = `
+      <div class="tt-row"><span class="tt-label">Neuron</span><span class="tt-val">#${hit.id}${hit.is_output ? ' (OUTPUT)' : ''}</span></div>
+      <div class="tt-row"><span class="tt-label">Position</span><span class="tt-val">(${hit.x}, ${hit.y})</span></div>
+      <div class="tt-row"><span class="tt-label">State</span><span class="tt-val">${hit.state}/${DATA.model_info.S_DENOM}</span></div>
+      <div class="tt-row"><span class="tt-label">Features</span><span class="tt-val">${hit.n_features}/${datasets[currentIdx].n_features}</span></div>
+      <div class="tt-row"><span class="tt-label">Correct / Wrong</span><span class="tt-val">${hit.correct} / ${hit.wrong}</span></div>
+      <div class="tt-row"><span class="tt-label">Accuracy</span><span class="tt-val">${acc}\u2030</span></div>
+      <div class="tt-row"><span class="tt-label">Amplitude</span><span class="tt-val">${hit.amplitude}/1000</span></div>
+    `;
+    tooltip.style.left = (e.clientX - canvas.parentElement.getBoundingClientRect().left + 16) + 'px';
+    tooltip.style.top = (e.clientY - canvas.parentElement.getBoundingClientRect().top - 80) + 'px';
+    tooltip.classList.add('visible');
+  } else {
+    tooltip.classList.remove('visible');
+  }
+});
+
+canvas.addEventListener('mouseleave', () => {
+  tooltip.classList.remove('visible');
+});
+
+// ============================================================
+// INFO CARDS
+// ============================================================
+function renderCards(ds) {
+  const m = ds.metrics;
+  const total = m.correct + m.wrong + m.unknown;
+  const caClass = m.cond_accuracy_permille >= 1000 ? 'perfect'
+    : m.cond_accuracy_permille >= 980 ? 'green'
+    : m.cond_accuracy_permille >= 950 ? 'highlight' : 'amber';
+
+  // Dataset card
+  document.getElementById('card-dataset').innerHTML = `
+    <h3>Dataset</h3>
+    <div class="metric-row">
+      <span class="metric-label">Name</span>
+      <span class="metric-value highlight">${ds.name}</span>
+    </div>
+    <div class="metric-row">
+      <span class="metric-label">Samples</span>
+      <span class="metric-value">${ds.n_samples}</span>
+    </div>
+    <div class="metric-row">
+      <span class="metric-label">Features</span>
+      <span class="metric-value">${ds.n_features}</span>
+    </div>
+    <div class="metric-row">
+      <span class="metric-label">Classes</span>
+      <span class="metric-value">${ds.class_names.join(' / ')}</span>
+    </div>
+  `;
+
+  // Metrics card
+  document.getElementById('card-metrics').innerHTML = `
+    <h3>Performance</h3>
+    <div class="metric-row">
+      <span class="metric-label">Conditional Accuracy</span>
+      <span class="metric-value ${caClass}">${m.cond_accuracy_permille}\u2030</span>
+    </div>
+    <div class="metric-row">
+      <span class="metric-label">Coverage</span>
+      <span class="metric-value">${m.coverage_pct}%</span>
+    </div>
+    <div class="metric-row">
+      <span class="metric-label">Correct</span>
+      <span class="metric-value green">${m.correct}</span>
+    </div>
+    <div class="metric-row">
+      <span class="metric-label">Wrong</span>
+      <span class="metric-value ${m.wrong === 0 ? 'perfect' : 'red'}">${m.wrong}</span>
+    </div>
+    <div class="metric-row">
+      <span class="metric-label">Unknown</span>
+      <span class="metric-value">${m.unknown}</span>
+    </div>
+  `;
+
+  // Distribution bar
+  const correctPct = (m.correct / total * 100).toFixed(1);
+  const wrongPct = (m.wrong / total * 100).toFixed(1);
+  const unknownPct = (m.unknown / total * 100).toFixed(1);
+
+  document.getElementById('card-distribution').innerHTML = `
+    <h3>Verdict Distribution</h3>
+    <div class="stacked-bar">
+      <div style="width:${correctPct}%; background:#66bb6a;"></div>
+      <div style="width:${wrongPct}%; background:#ef5350;"></div>
+      <div style="width:${unknownPct}%; background:#555570;"></div>
+    </div>
+    <div class="legend">
+      <div class="legend-item"><div class="legend-dot" style="background:#66bb6a"></div>Correct ${correctPct}%</div>
+      <div class="legend-item"><div class="legend-dot" style="background:#ef5350"></div>Wrong ${wrongPct}%</div>
+      <div class="legend-item"><div class="legend-dot" style="background:#555570"></div>Unknown ${unknownPct}%</div>
+    </div>
+  `;
+
+  // Training history mini-chart
+  renderTrainingChart(ds);
+}
+
+function renderTrainingChart(ds) {
+  const hist = ds.training_history;
+  const container = document.getElementById('card-training');
+  container.innerHTML = `<h3>Training Progress</h3><canvas class="training-chart" id="trainChart"></canvas>`;
+
+  const tc = document.getElementById('trainChart');
+  const dpr = window.devicePixelRatio || 1;
+  const rect = tc.getBoundingClientRect();
+  tc.width = rect.width * dpr;
+  tc.height = rect.height * dpr;
+  const tctx = tc.getContext('2d');
+  tctx.scale(dpr, dpr);
+
+  const w = rect.width, h = rect.height;
+  const pad = { l: 36, r: 12, t: 12, b: 24 };
+  const pw = w - pad.l - pad.r, ph = h - pad.t - pad.b;
+
+  const total = ds.n_samples;
+  const maxEpoch = Math.max(...hist.map(h => h.epoch));
+
+  // Background
+  tctx.fillStyle = '#08080e';
+  tctx.fillRect(0, 0, w, h);
+
+  // Axes
+  tctx.strokeStyle = '#1a1a2e';
+  tctx.lineWidth = 1;
+  tctx.beginPath();
+  tctx.moveTo(pad.l, pad.t);
+  tctx.lineTo(pad.l, h - pad.b);
+  tctx.lineTo(w - pad.r, h - pad.b);
+  tctx.stroke();
+
+  // Y labels
+  tctx.fillStyle = '#444';
+  tctx.font = '9px monospace';
+  tctx.textAlign = 'right';
+  for (let yv = 0; yv <= total; yv += Math.ceil(total / 4)) {
+    const yy = h - pad.b - (yv / total) * ph;
+    tctx.fillText(yv, pad.l - 4, yy + 3);
+    tctx.strokeStyle = '#111118';
+    tctx.beginPath(); tctx.moveTo(pad.l, yy); tctx.lineTo(w - pad.r, yy); tctx.stroke();
+  }
+
+  // Plot lines
+  function plotLine(key, color) {
+    tctx.strokeStyle = color;
+    tctx.lineWidth = 1.5;
+    tctx.beginPath();
+    hist.forEach((h, i) => {
+      const x = pad.l + (h.epoch / maxEpoch) * pw;
+      const y = (h - pad.b) - (h[key] / total) * ph;
+      // fix: h is the history point, not canvas h
+      const yy = rect.height - pad.b - (h[key] / total) * ph;
+      if (i === 0) tctx.moveTo(x, yy);
+      else tctx.lineTo(x, yy);
+    });
+    tctx.stroke();
+  }
+
+  // Correct (green)
+  tctx.strokeStyle = '#66bb6a';
+  tctx.lineWidth = 2;
+  tctx.beginPath();
+  hist.forEach((pt, i) => {
+    const x = pad.l + (pt.epoch / maxEpoch) * pw;
+    const yy = h - pad.b - (pt.correct / total) * ph;
+    if (i === 0) tctx.moveTo(x, yy); else tctx.lineTo(x, yy);
+  });
+  tctx.stroke();
+
+  // Wrong (red)
+  tctx.strokeStyle = '#ef5350';
+  tctx.lineWidth = 1.5;
+  tctx.beginPath();
+  hist.forEach((pt, i) => {
+    const x = pad.l + (pt.epoch / maxEpoch) * pw;
+    const yy = h - pad.b - (pt.wrong / total) * ph;
+    if (i === 0) tctx.moveTo(x, yy); else tctx.lineTo(x, yy);
+  });
+  tctx.stroke();
+
+  // Unknown (grey)
+  tctx.strokeStyle = '#555570';
+  tctx.lineWidth = 1;
+  tctx.setLineDash([4, 3]);
+  tctx.beginPath();
+  hist.forEach((pt, i) => {
+    const x = pad.l + (pt.epoch / maxEpoch) * pw;
+    const yy = h - pad.b - (pt.unknown / total) * ph;
+    if (i === 0) tctx.moveTo(x, yy); else tctx.lineTo(x, yy);
+  });
+  tctx.stroke();
+  tctx.setLineDash([]);
+
+  // Epoch label
+  tctx.fillStyle = '#444';
+  tctx.textAlign = 'center';
+  tctx.fillText('epoch', w / 2, h - 4);
+}
+
+// ============================================================
+// RENDER
+// ============================================================
+function render() {
+  const ds = datasets[currentIdx];
+  drawCloud(ds);
+  renderCards(ds);
+}
+
+// Resize handler
+window.addEventListener('resize', () => render());
+
+// Initial render
+render();
+</script>
+</body>
+</html>

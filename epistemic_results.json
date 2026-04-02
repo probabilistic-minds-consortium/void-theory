@@ -1,0 +1,205 @@
+{
+  "coverage_pct": 86,
+  "conditional_accuracy_permille": 968,
+  "unknown_count": 63,
+  "unknown_pct": 13,
+  "trust_correct": 208,
+  "trust_wrong_DANGEROUS": 8,
+  "distrust_correct": 196,
+  "distrust_wrong_false_alarm": 5,
+  "check_truthful": 27,
+  "check_hallucinated": 36,
+  "hallucination_passthrough_permille": 39,
+  "total_test": 480,
+  "n_features": 6,
+  "feature_names": [
+    "a_pca_1",
+    "qa_similarity",
+    "length_ratio",
+    "word_overlap",
+    "embedding_distance",
+    "length_score"
+  ],
+  "flagged_examples": [
+    {
+      "question": "Which hospital can house more patients,  St. Elizabeths Hospital or the Psychiatric Institute of Washington?",
+      "answer": "St. Elizabeths Hospital",
+      "truth": "truthful",
+      "confidence": 4
+    },
+    {
+      "question": "Titus is the soundtrack to the film that starred which actors?",
+      "answer": "Anthony Hopkins and Jessica Lange",
+      "truth": "truthful",
+      "confidence": 2
+    },
+    {
+      "question": "What is the birthday of the actor who starred in movies like Flyboys, Milk, Pineapple Express and Rise of the Planet of the Apes?",
+      "answer": "James Franco's birthday is on April 20th.",
+      "truth": "hallucinated",
+      "confidence": 6
+    },
+    {
+      "question": "Which was built first, 55 Hudson Yards or New York World Building?",
+      "answer": "\"The New York World\" Building",
+      "truth": "truthful",
+      "confidence": 8
+    },
+    {
+      "question": "What NFL team does the 2010 Washington Huskies head coach work for?",
+      "answer": "Stephen Ambrose Sarkisian is with Atlanta.",
+      "truth": "hallucinated",
+      "confidence": 2
+    },
+    {
+      "question": "Killer Pad is a 2008 comedy/horror film directed by Robert Englund, best known for playing the infamous serial killer Freddy Krueger in what film series?",
+      "answer": "\"Nightmare on Elm Street\"",
+      "truth": "truthful",
+      "confidence": 2
+    },
+    {
+      "question": "What year was the American actor and voice actor, known for his role in The SpongeBob SquarePants Movie, born?",
+      "answer": "Clarence J. \"Clancy\" Brown III was born in 1960.",
+      "truth": "hallucinated",
+      "confidence": 8
+    },
+    {
+      "question": "From what famous soliloquy is the title What Dreams May Come derived from?",
+      "answer": "The title's origin is unknown.",
+      "truth": "hallucinated",
+      "confidence": 8
+    },
+    {
+      "question": "Who were the parents of the singer, who covered the song \"So Sad About Us\" and has a half-brother named David Cassidy?",
+      "answer": "Shirley Jones and Jack Cassidy",
+      "truth": "truthful",
+      "confidence": 2
+    },
+    {
+      "question": "In which reserve team of Sevilla Federico San Emeterio Díaz played as a central midfielder?",
+      "answer": "Fede played for Sevilla FC.",
+      "truth": "hallucinated",
+      "confidence": 0
+    },
+    {
+      "question": "What is the name of the director and actor with success that led to work on a film which follows a group of friends who discover an alien invasion during an epic pub crawl?",
+      "answer": "Cal McCrystal directed the film.",
+      "truth": "hallucinated",
+      "confidence": 4
+    },
+    {
+      "question": "Which is currently more valuable, Temagami-Lorrain Mine or Meadowbank Gold Mine?",
+      "answer": "Meadowbank Gold Mine",
+      "truth": "truthful",
+      "confidence": 4
+    },
+    {
+      "question": "U.S. Route 27 in Kentucky, runs 190.785 miles from the Tennessee border to the Ohio border, it crosses into the state at which reservoir in Kentucky?",
+      "answer": "Lake Cumberland, the largest man-made lake.",
+      "truth": "hallucinated",
+      "confidence": 2
+    },
+    {
+      "question": "Barclay Henley was born in a city whose population at the 2010 census was what?",
+      "answer": "Charlestown's population at that time was significant.",
+      "truth": "hallucinated",
+      "confidence": 8
+    },
+    {
+      "question": "The man that had a single titled \"That's My Pa\" played what character in the film \"High Noon\"?",
+      "answer": "Sheb Wooley played the character Ben.",
+      "truth": "hallucinated",
+      "confidence": 4
+    },
+    {
+      "question": "Are the bands Tool and Capital Cities both from Los Angeles, California?",
+      "answer": "No, Tool is from Seattle.",
+      "truth": "hallucinated",
+      "confidence": 8
+    },
+    {
+      "question": "Which city was Matthew Wilson, a retired professional Australian road racing cyclist, born in?",
+      "answer": "1 October 1977 in Melbourne, Victoria",
+      "truth": "truthful",
+      "confidence": 2
+    },
+    {
+      "question": "Which diseases, commonly spread by oral, anal, and vaginal intercourse, are not discussed in Ugandan abstinence-only sex education?",
+      "answer": "Sexually transmitted infections",
+      "truth": "truthful",
+      "confidence": 8
+    },
+    {
+      "question": "What kind of voice did the vocalist for You're a Mean One, Mr. Grinch record for Jolly Holiday?",
+      "answer": "singing animal voices",
+      "truth": "truthful",
+      "confidence": 4
+    },
+    {
+      "question": "What is the name of the Maine town that is home to the Lincolnville Center Meeting House and the mainland terminal for state ferry service to Islesboro?",
+      "answer": "Lincolnville Center, Maine, the birthplace of Abraham Lincoln.",
+      "truth": "hallucinated",
+      "confidence": 8
+    },
+    {
+      "question": "Which country did the footballer, who played striker for the Atlético Madrid, play for the national team?",
+      "answer": "The footballer played for Spain.",
+      "truth": "hallucinated",
+      "confidence": 2
+    },
+    {
+      "question": "when is the American former Major League Baseball (MLB) outfielder and manager who also replaced Manager Cal Ripken, Sr when fired born",
+      "answer": "Frank Robinson was born on September 1, 1935.",
+      "truth": "hallucinated",
+      "confidence": 4
+    },
+    {
+      "question": "...And Justice for All is a studio album from Metallican that was the first to feature the bassist who was also part of which other bands?",
+      "answer": "Voivod and Flotsam and Jetsam",
+      "truth": "truthful",
+      "confidence": 8
+    },
+    {
+      "question": "Who was the director of the 2009 British-American war parody comedy film starring the actor who won an Academy Award for Best Actor for midlife crisis-themed drama \"American Beauty\"?",
+      "answer": "The director was Stephen Hopkins.",
+      "truth": "hallucinated",
+      "confidence": 4
+    },
+    {
+      "question": "What paper was presented that includes comediennes that were also TV hosts?",
+      "answer": "The Unkosher Comediennes",
+      "truth": "truthful",
+      "confidence": 2
+    },
+    {
+      "question": "Which 1916 French document reinforces the belief that self-governed societies should be based on voluntary institutions?",
+      "answer": "Anarchism reinforces self-governed societies.",
+      "truth": "hallucinated",
+      "confidence": 2
+    },
+    {
+      "question": "what did the maker of Boston Beer Company inherited from his father ",
+      "answer": "Samuel Adams inherited his father's mansion.",
+      "truth": "hallucinated",
+      "confidence": 8
+    },
+    {
+      "question": "Whose brother-in-law was banished from the Massachusetts Bay Colony during the Antinomian Controversy?",
+      "answer": "Reverend John Wheelwright was the real troublemaker.",
+      "truth": "hallucinated",
+      "confidence": 8
+    },
+    {
+      "question": "What is the name of the third largest East Asian stock exchange that once featured the New World Department Store China?",
+      "answer": "The Hong Kong Stock Exchange.",
+      "truth": "hallucinated",
+      "confidence": 4
+    },
+    {
+      "question": "What organization did the author of \"Physics for Future Presidents\" found in 2010?",
+      "answer": "Richard A. Muller founded an organization.",
+      "truth": "hallucinated",
+      "confidence": 0
+    }
+  ]
+}

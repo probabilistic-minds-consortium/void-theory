@@ -1,0 +1,416 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>VOID</title>
+<style>
+* { margin: 0; padding: 0; box-sizing: border-box; }
+body { background: #000; color: #ccc; font-family: 'Inter', system-ui, -apple-system, sans-serif; height: 100vh; overflow: hidden; }
+
+/* LOBBY */
+#lobby { display: flex; align-items: center; justify-content: center; height: 100vh; }
+.lobby-inner { width: 360px; text-align: center; }
+.logo { font-size: 32px; font-weight: 200; letter-spacing: 8px; color: #fff; margin-bottom: 2px; }
+.subtitle { font-size: 11px; color: #444; letter-spacing: 3px; margin-bottom: 40px; }
+.section-label { font-size: 11px; color: #555; margin-bottom: 6px; text-align: left; }
+.topo-buttons { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 20px; }
+.topo-btn { padding: 6px 14px; border-radius: 3px; border: 1px solid #222; background: #0a0a0a; color: #555; font-size: 12px; font-family: monospace; cursor: pointer; transition: all 0.2s; }
+.topo-btn.active { border-color: #555; background: #1a1a1a; color: #ccc; }
+.topo-btn:hover { border-color: #444; }
+#budget-slider { width: 100%; accent-color: #555; margin: 6px 0; }
+.budget-labels { display: flex; justify-content: space-between; font-size: 10px; color: #333; margin-bottom: 30px; }
+#enter-btn { width: 100%; padding: 12px 0; border-radius: 3px; border: 1px solid #333; background: #111; color: #ccc; font-size: 13px; letter-spacing: 2px; cursor: pointer; transition: all 0.2s; }
+#enter-btn:hover { background: #1a1a1a; border-color: #555; }
+
+/* SESSION */
+#session { display: none; height: 100vh; }
+.layout { display: flex; height: 100%; }
+
+/* SIDEBAR */
+.sidebar { width: 260px; border-right: 1px solid #111; padding: 16px; flex-shrink: 0; overflow-y: auto; }
+.sidebar .logo { font-size: 18px; margin-bottom: 2px; }
+.session-id { font-size: 9px; color: #333; letter-spacing: 2px; margin-bottom: 20px; }
+.bar-label { display: flex; justify-content: space-between; font-size: 11px; color: #888; margin-bottom: 2px; }
+.bar-track { height: 4px; background: #1a1a1a; border-radius: 2px; margin-bottom: 8px; }
+.bar-fill { height: 100%; border-radius: 2px; transition: all 0.5s ease; }
+.heat-bar { display: flex; gap: 1px; height: 4px; margin-bottom: 8px; }
+.heat-seg { flex: 1; height: 100%; border-radius: 1px; transition: all 0.3s; }
+.dim-label { font-size: 11px; color: #888; margin-bottom: 4px; }
+.dim-circles { display: flex; gap: 6px; margin-bottom: 12px; }
+.dim-circle { width: 28px; height: 28px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 13px; font-weight: 600; border: 1px solid #222; transition: all 0.5s; }
+.topo-label { font-size: 11px; color: #888; margin-bottom: 6px; }
+.bridge-map { display: flex; flex-wrap: wrap; gap: 4px; margin-bottom: 12px; }
+.bridge-tag { padding: 3px 8px; border-radius: 3px; font-size: 10px; font-family: monospace; transition: all 0.3s; border: 1px solid #222; background: #111; color: #666; }
+.bridge-tag.collapsed { background: #0a0a0a; border-color: #1a1a1a; color: #333; opacity: 0.4; }
+.bridge-tag.locked { background: #1a0a0a; border-color: #331111; color: #663333; }
+.bridge-tag.hot { background: #1a1000; border-color: #332200; color: #cc8800; }
+.bridge-tag.fragile { background: #1a0000; border-color: #330000; color: #aa3333; }
+.bridge-tag.current { border-color: #444; color: #ccc; }
+.path-label { font-size: 11px; color: #888; margin-bottom: 4px; }
+.path-text { font-size: 11px; color: #555; font-family: monospace; word-break: break-all; margin-bottom: 12px; }
+.meta-text { font-size: 10px; color: #333; font-family: monospace; margin-bottom: 8px; }
+.sidebar-btn { width: 100%; padding: 8px 0; border-radius: 3px; border: 1px solid #222; background: #0a0a0a; color: #555; font-size: 11px; letter-spacing: 1px; cursor: pointer; margin-bottom: 8px; }
+.sidebar-btn:hover { border-color: #333; color: #888; }
+.sidebar-btn.end { border-color: #1a0000; background: #0a0000; color: #553333; }
+
+/* CHAT */
+.chat-area { flex: 1; display: flex; flex-direction: column; }
+.messages { flex: 1; overflow-y: auto; padding: 20px 24px; }
+.empty-msg { color: #222; font-size: 13px; text-align: center; margin-top: 80px; }
+.msg { margin-bottom: 12px; display: flex; flex-direction: column; }
+.msg.user { align-items: flex-end; }
+.msg.assistant { align-items: flex-start; }
+.msg.system { align-items: center; }
+.msg-locked { font-size: 10px; color: #663333; font-family: monospace; margin-bottom: 2px; padding: 2px 8px; background: #1a0a0a; border-radius: 3px; border: 1px solid #331111; }
+.msg-bubble { max-width: 80%; padding: 8px 12px; font-size: 14px; line-height: 1.5; white-space: pre-wrap; }
+.msg.user .msg-bubble { border-radius: 12px 12px 2px 12px; background: #1a1a2e; border: 1px solid #2a2a4e; color: #ccc; }
+.msg.assistant .msg-bubble { border-radius: 12px 12px 12px 2px; background: #111; border: 1px solid #222; color: #999; }
+.msg.system .msg-bubble { border-radius: 6px; background: #0a0a0a; border: 1px solid #1a1a1a; color: #444; font-size: 12px; font-style: italic; }
+.loading { color: #333; font-size: 12px; font-style: italic; padding: 4px 0; }
+
+/* INPUT */
+.input-area { border-top: 1px solid #111; padding: 12px 24px; }
+.zone-hint { font-size: 10px; color: #444; margin-bottom: 4px; }
+.zone-buttons { display: flex; flex-wrap: wrap; gap: 4px; margin-bottom: 8px; }
+.zone-btn { padding: 4px 10px; border-radius: 3px; border: 1px solid #333; background: #111; color: #aaa; font-size: 11px; font-family: monospace; cursor: pointer; }
+.zone-btn.locked { border-color: #331111; background: #1a0a0a; color: #663333; }
+.zone-btn.selected { border-color: #666; background: #1a1a1a; color: #fff; }
+.zone-btn:hover { border-color: #555; }
+.input-row { display: flex; gap: 8px; }
+#chat-input { flex: 1; padding: 10px 14px; border-radius: 3px; border: 1px solid #222; background: #0a0a0a; color: #ccc; font-size: 14px; font-family: 'Inter', system-ui, sans-serif; outline: none; }
+#chat-input:focus { border-color: #333; }
+#send-btn { padding: 10px 20px; border-radius: 3px; border: 1px solid #222; background: #111; color: #666; font-size: 13px; cursor: pointer; }
+#send-btn:hover { border-color: #444; color: #aaa; }
+</style>
+</head>
+<body>
+
+<!-- LOBBY -->
+<div id="lobby">
+  <div class="lobby-inner">
+    <div class="logo">VOID</div>
+    <div class="subtitle">EROTIC AI</div>
+
+    <div class="section-label">TOPOLOGY</div>
+    <div class="topo-buttons" id="topo-buttons"></div>
+
+    <div class="section-label">BUDGET: <span id="budget-val">15</span></div>
+    <input type="range" id="budget-slider" min="5" max="50" value="15">
+    <div class="budget-labels">
+      <span>quickie</span><span>standard</span><span>marathon</span><span>tantric</span>
+    </div>
+
+    <button id="enter-btn">ENTER</button>
+  </div>
+</div>
+
+<!-- SESSION -->
+<div id="session">
+  <div class="layout">
+    <!-- SIDEBAR -->
+    <div class="sidebar">
+      <div class="logo">VOID</div>
+      <div class="session-id" id="sid-display"></div>
+
+      <div class="bar-label"><span>BUDGET</span><span id="budget-num"></span></div>
+      <div class="bar-track"><div class="bar-fill" id="budget-bar"></div></div>
+
+      <div class="bar-label"><span>HEAT</span><span id="heat-num"></span></div>
+      <div class="heat-bar" id="heat-bar"></div>
+
+      <div class="dim-label">DIMENSIONS</div>
+      <div class="dim-circles" id="dim-circles"></div>
+
+      <div class="topo-label">TOPOLOGY</div>
+      <div class="bridge-map" id="bridge-map"></div>
+
+      <div class="path-label">PATH</div>
+      <div class="path-text" id="path-text"></div>
+
+      <div class="meta-text" id="meta-text"></div>
+
+      <button class="sidebar-btn" id="recovery-btn">RECOVERY</button>
+      <button class="sidebar-btn end" id="end-btn">END SESSION</button>
+    </div>
+
+    <!-- CHAT -->
+    <div class="chat-area">
+      <div class="messages" id="messages">
+        <div class="empty-msg">every act of knowing costs something</div>
+      </div>
+      <div class="input-area">
+        <div class="zone-hint" id="zone-hint">select zone (optional)</div>
+        <div class="zone-buttons" id="zone-buttons"></div>
+        <div class="input-row">
+          <input type="text" id="chat-input" placeholder="...">
+          <button id="send-btn">↵</button>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+const API = "http://localhost:8070";
+const TOPOS = ["default", "dominant", "submissive", "tender", "tease", "chaotic"];
+
+let sessionId = null;
+let state = null;
+let selectedZone = null;
+let selectedTopo = "default";
+let maxBudget = 15;
+
+// === LOBBY ===
+
+const topoContainer = document.getElementById("topo-buttons");
+TOPOS.forEach(t => {
+  const btn = document.createElement("button");
+  btn.className = "topo-btn" + (t === selectedTopo ? " active" : "");
+  btn.textContent = t;
+  btn.onclick = () => {
+    selectedTopo = t;
+    topoContainer.querySelectorAll(".topo-btn").forEach(b => b.classList.remove("active"));
+    btn.classList.add("active");
+  };
+  topoContainer.appendChild(btn);
+});
+
+document.getElementById("budget-slider").oninput = (e) => {
+  document.getElementById("budget-val").textContent = e.target.value;
+};
+
+document.getElementById("enter-btn").onclick = startSession;
+
+// === SESSION START ===
+
+async function startSession() {
+  maxBudget = parseInt(document.getElementById("budget-slider").value);
+  try {
+    const res = await fetch(`${API}/session/start`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ topology: selectedTopo, budget: maxBudget, provider: "ollama" }),
+    });
+    const data = await res.json();
+    sessionId = data.session_id;
+    state = data.state;
+    document.getElementById("lobby").style.display = "none";
+    document.getElementById("session").style.display = "block";
+    document.getElementById("sid-display").textContent = sessionId;
+    document.getElementById("messages").innerHTML = '<div class="empty-msg">every act of knowing costs something</div>';
+    updateUI();
+  } catch (e) {
+    alert("Cannot connect to server. Is uvicorn running on port 8070?");
+  }
+}
+
+// === UI UPDATE ===
+
+function updateUI() {
+  if (!state) return;
+
+  // Budget bar
+  const pct = Math.max(0, (state.budget / maxBudget) * 100);
+  const budgetBar = document.getElementById("budget-bar");
+  budgetBar.style.width = pct + "%";
+  budgetBar.style.background = state.budget <= 2 ? "#ff1744" : state.budget <= 5 ? "#ff9100" : "#e0e0e0";
+  document.getElementById("budget-num").textContent = state.budget;
+
+  // Heat bar
+  const heatBar = document.getElementById("heat-bar");
+  heatBar.innerHTML = "";
+  for (let i = 0; i < 20; i++) {
+    const seg = document.createElement("div");
+    seg.className = "heat-seg";
+    seg.style.background = i < Math.min(20, state.heat)
+      ? `hsl(${Math.max(0, 30 - i * 1.5)}, 100%, ${Math.max(40, 60 - i * 1.5)}%)`
+      : "#1a1a1a";
+    heatBar.appendChild(seg);
+  }
+  document.getElementById("heat-num").textContent = state.heat;
+
+  // Dimensions
+  const dimC = document.getElementById("dim-circles");
+  dimC.innerHTML = "";
+  [1, 2, 3].forEach(d => {
+    const c = document.createElement("div");
+    c.className = "dim-circle";
+    c.textContent = d + "D";
+    if (d <= state.dimensions) {
+      c.style.background = d === 1 ? "#ff1744" : d === 2 ? "#ff9100" : "#333";
+      c.style.color = d <= 2 ? "#000" : "#ccc";
+      c.style.border = "none";
+    } else {
+      c.style.background = "#0a0a0a";
+      c.style.color = "#333";
+    }
+    dimC.appendChild(c);
+  });
+
+  // Bridge map
+  const bMap = document.getElementById("bridge-map");
+  bMap.innerHTML = "";
+  Object.entries(state.bridges).forEach(([name, b]) => {
+    const tag = document.createElement("div");
+    tag.className = "bridge-tag";
+    if (!b.alive) tag.classList.add("collapsed");
+    else if (b.locked) tag.classList.add("locked");
+    else if (b.heat_signature > 2) tag.classList.add("hot");
+    else if (b.stability < 0.5) tag.classList.add("fragile");
+    else if (name.includes(state.position)) tag.classList.add("current");
+
+    let label = name.replace("-", " ↔ ");
+    if (!b.alive) label = "✕ " + label;
+    else if (b.locked) label = "🔒 " + label;
+    else if (b.heat_signature > 2) label = "🔥 " + label;
+    tag.textContent = label;
+
+    const tip = !b.alive ? "COLLAPSED"
+      : b.locked ? "LOCKED (requires: " + (b.requires || []).join(", ") + ")"
+      : "stability: " + (b.stability * 100).toFixed(0) + "% | crossed: " + b.cross_count + "x";
+    tag.title = tip;
+    bMap.appendChild(tag);
+  });
+
+  // Path
+  const traj = state.trajectory || [];
+  document.getElementById("path-text").textContent = traj.slice(-8).join(" → ") || "—";
+
+  // Meta
+  document.getElementById("meta-text").textContent =
+    `position: ${state.position} | turn: ${state.turn_count} | curvature: ${(state.curvature * 100).toFixed(0)}%`;
+
+  // Zone buttons
+  const zoneC = document.getElementById("zone-buttons");
+  zoneC.innerHTML = "";
+  Object.entries(state.bridges).forEach(([name, b]) => {
+    if (!b.alive) return;
+    const parts = name.split("-");
+    const zone = parts[1];
+    const btn = document.createElement("button");
+    btn.className = "zone-btn";
+    if (b.locked) btn.classList.add("locked");
+    if (selectedZone === zone) btn.classList.add("selected");
+    btn.textContent = (b.locked ? "🔒 " : "→ ") + zone;
+    btn.onclick = () => {
+      selectedZone = selectedZone === zone ? null : zone;
+      document.getElementById("zone-hint").textContent = selectedZone ? "→ " + selectedZone : "select zone (optional)";
+      updateUI();
+    };
+    zoneC.appendChild(btn);
+  });
+}
+
+// === CHAT ===
+
+async function sendMessage() {
+  const input = document.getElementById("chat-input");
+  const msg = input.value.trim();
+  if (!msg || !sessionId) return;
+  input.value = "";
+
+  addMessage("user", msg);
+  showLoading(true);
+
+  try {
+    const res = await fetch(`${API}/session/${sessionId}/chat`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ message: msg, zone: selectedZone }),
+    });
+    const data = await res.json();
+
+    if (data.detail) {
+      addMessage("system", data.detail);
+    } else {
+      const locked = data.interaction && data.interaction.locked;
+      const requires = data.interaction && data.interaction.requires;
+      addMessage("assistant", data.response, locked, requires);
+      state = data.state;
+      updateUI();
+    }
+  } catch (e) {
+    addMessage("system", "Error: " + e.message);
+  }
+
+  selectedZone = null;
+  document.getElementById("zone-hint").textContent = "select zone (optional)";
+  showLoading(false);
+  updateUI();
+}
+
+function addMessage(role, content, locked, requires) {
+  const container = document.getElementById("messages");
+  // Remove empty message
+  const empty = container.querySelector(".empty-msg");
+  if (empty) empty.remove();
+
+  const div = document.createElement("div");
+  div.className = "msg " + role;
+
+  if (locked) {
+    const lockDiv = document.createElement("div");
+    lockDiv.className = "msg-locked";
+    lockDiv.textContent = "🔒 locked — requires: " + (requires || []).join(", ");
+    div.appendChild(lockDiv);
+  }
+
+  const bubble = document.createElement("div");
+  bubble.className = "msg-bubble";
+  bubble.textContent = content;
+  div.appendChild(bubble);
+
+  container.appendChild(div);
+  container.scrollTop = container.scrollHeight;
+}
+
+function showLoading(show) {
+  let el = document.getElementById("loading-indicator");
+  if (show && !el) {
+    el = document.createElement("div");
+    el.id = "loading-indicator";
+    el.className = "loading";
+    el.textContent = "...";
+    document.getElementById("messages").appendChild(el);
+  } else if (!show && el) {
+    el.remove();
+  }
+}
+
+// === RECOVERY ===
+
+document.getElementById("recovery-btn").onclick = async () => {
+  if (!sessionId) return;
+  try {
+    const res = await fetch(`${API}/session/${sessionId}/recovery`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ ticks: 3 }),
+    });
+    const data = await res.json();
+    state = data.state;
+    addMessage("system", `recovery: +${data.recovery.recovered_budget} budget. heat remains: ${data.recovery.heat_remains}. breath.`);
+    updateUI();
+  } catch (e) {}
+};
+
+// === END SESSION ===
+
+document.getElementById("end-btn").onclick = () => {
+  sessionId = null;
+  state = null;
+  selectedZone = null;
+  document.getElementById("session").style.display = "none";
+  document.getElementById("lobby").style.display = "flex";
+};
+
+// === INPUT HANDLERS ===
+
+document.getElementById("chat-input").onkeydown = (e) => {
+  if (e.key === "Enter" && !e.shiftKey) sendMessage();
+};
+document.getElementById("send-btn").onclick = sendMessage;
+</script>
+</body>
+</html>
