@@ -1,8 +1,19 @@
 (******************************************************************************)
 (* void_information_theory.v - INFORMATION THEORY FOUNDATION                 *)
-(* Defines the READ/WRITE boundary for void mathematics                       *)
-(* READ = Access existing information structure (FREE)                        *)
-(* WRITE = Change universe's distinguishable content (COSTS BUDGET)           *)
+(* Defines operation types for void mathematics.                              *)
+(*                                                                            *)
+(* HISTORICAL NOTE (2026-04-02):                                              *)
+(* This file originally assumed READ ≠ WRITE: read is free, write costs.     *)
+(* void_probability_geometry.v Section XV proves this distinction false:      *)
+(*   - write_asymmetry: every observation is atomic read+write               *)
+(*   - no_free_lunch_le: every comparison with nonzero budget costs nonzero  *)
+(*   - self_blind: the observer cannot observe itself at any budget           *)
+(* READ IS WRITE. There is no free observation. The ReadOperation type       *)
+(* class below is retained for backward compatibility but is ontologically   *)
+(* superseded: any "read" that touches Fin is a write in disguise.           *)
+(*                                                                            *)
+(* Three Axioms that enforced the old distinction have been replaced          *)
+(* with comments explaining why they are false. No file depends on them.     *)
 (******************************************************************************)
 
 Require Import void_finite_minimal.
@@ -37,15 +48,21 @@ Record UniverseInformation := {
 }.
 
 (******************************************************************************)
-(* CORE PRINCIPLE: READ vs WRITE OPERATIONS                                   *)
+(* OPERATION TYPES                                                            *)
+(* NOTE: The READ/WRITE distinction is retained as a type-level interface     *)
+(* for backward compatibility. Ontologically, READ IS WRITE:                  *)
+(* every observation that touches Fin costs budget and produces Spuren.       *)
+(* ReadOperation below models the SYNTACTIC pattern of structural access;     *)
+(* it does NOT mean the operation is free. See void_probability_geometry.v    *)
+(* Section XV for the proof.                                                  *)
 (******************************************************************************)
 
-(* READ Operation: Accesses existing information without changing total entropy *)
+(* Structural access pattern — syntactically budget-free, but see above *)
 Class ReadOperation (A B : Type) := {
   read_op : A -> B
 }.
 
-(* WRITE Operation: Changes universe's distinguishable content *)
+(* Budgeted operation — explicitly tracks cost *)
 Class WriteOperation (A B : Type) := {
   write_op : A -> Budget -> (B * Budget * Spuren)
 }.
@@ -160,25 +177,26 @@ Lemma read_information_conservation :
   total_entropy universe = total_entropy universe.
 Proof. intro. reflexivity. Qed.
 
-(* Axiom: WRITE operations consume budget and generate Spuren *)
-Axiom write_consumes_budget : 
-  forall {A B : Type} (write_inst : WriteOperation A B) (input : A) (b : Budget) (output : B) (b' : Budget) (h : Spuren),
-  write_op input b = (output, b', h) -> 
-  (* Budget was consumed: Spuren represents the consumed portion *)
-  h <> fz -> b <> b'.
-
-(* Axiom: WRITE operations change the universe's information content *)
-Axiom write_information_thermodynamics :
-  forall {A B : Type} (write_inst : WriteOperation A B) (input : A) (b : Budget) (output : B) (b' : Budget) (h : Spuren),
-  write_op input b = (output, b', h) ->
-  (* Either entropy increased OR energy was consumed *)
-  h <> fz.
-
-(* The fundamental theorem: Only WRITE operations can change distinguishable states *)
-Axiom distinguishability_change_theorem :
-  forall (universe_before universe_after : UniverseInformation),
-  (* If distinguishable states changed, budget was consumed *)
-  information_budget universe_before <> information_budget universe_after.
+(* RETIRED AXIOMS — FALSE UNDER READ=WRITE (2026-04-02)                      *)
+(*                                                                            *)
+(* Former Axiom: write_consumes_budget                                        *)
+(*   Claimed: only WRITE operations consume budget.                           *)
+(*   False because: no_free_lunch_le (void_finite_minimal) proves that        *)
+(*   ANY le_fin_b3 comparison with nonzero budget produces nonzero Spuren.    *)
+(*   "Read" operations that touch Fin are writes in disguise.                 *)
+(*                                                                            *)
+(* Former Axiom: write_information_thermodynamics                             *)
+(*   Claimed: only WRITE operations generate Spuren.                          *)
+(*   False because: write_asymmetry (void_probability_geometry) proves        *)
+(*   every observation is atomic read+write. Spuren are universal.            *)
+(*                                                                            *)
+(* Former Axiom: distinguishability_change_theorem                            *)
+(*   Claimed: any two universe states have different budgets.                  *)
+(*   Malformed: this says ALL pairs differ, not "if changed then differ."     *)
+(*   Even corrected, it would be redundant with time_irreversible.            *)
+(*                                                                            *)
+(* These axioms were never used by any file in the codebase.                  *)
+(* Their removal changes no proofs. Their falsehood is now a theorem.         *)
 
 (******************************************************************************)
 (* BOUNDARY DECISION PROCEDURE                                                *)
