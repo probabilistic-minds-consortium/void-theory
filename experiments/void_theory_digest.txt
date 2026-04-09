@@ -1,0 +1,110 @@
+VOID THEORY — DIGEST FOR LANGUAGE MODEL CONSUMPTION
+====================================================
+
+This is a complete finite mathematical system formalized in 57 Coq files.
+Zero Admitted. One axiom: fin_bounded (there exists a largest number).
+
+CORE TYPES:
+-----------
+Inductive Fin : Type := fz : Fin | fs : Fin -> Fin.
+(* NOT Peano naturals. Bounded by MAX. Successor costs one tick. *)
+
+Definition Budget := Fin.    (* What you can spend *)
+Definition Spuren := Fin.    (* What you have spent — traces, irreversible *)
+(* Conservation: add_spur h b' = b. Always. *)
+
+Inductive Bool3 := BTrue | BFalse | BUnknown.
+(* BUnknown = epistemic bankruptcy, not ignorance *)
+
+Every budgeted operation has signature:
+  Budget -> (Result * Budget * Spuren)
+
+CORE OPERATION — le_fin_b3 (comparison/observation):
+-----------------------------------------------------
+Fixpoint le_fin_b3 (n m : Fin) (b : Budget) : (Bool3 * Budget * Spuren) :=
+  match b with
+  | fz => (BUnknown, fz, fz)       (* No budget = silence *)
+  | fs b' =>
+      match n, m with
+      | fz, _ => (BTrue, b', fs fz)
+      | fs _, fz => (BFalse, b', fs fz)
+      | fs n', fs m' => le_fin_b3 n' m' b'   (* recurse, budget shrinks *)
+      end
+  end.
+
+COLLAPSE — the mechanism of hallucination/trauma:
+-------------------------------------------------
+Definition collapse3 (r : Bool3) : bool :=
+  match r with BTrue => true | _ => false end.
+(* Maps BUnknown to false. Refuses the Real. Forces certainty. *)
+
+KEY THEOREMS (all Qed, zero axioms):
+-------------------------------------
+1. no_free_lunch: le_fin_b3 n m (fs b) = (res, b', h) -> h <> fz
+   "If you have budget and you look, you pay. Always."
+
+2. self_blind: le_fin_b3 n n n = (BUnknown, _, _)
+   "Budget n cannot verify n <= n. The observer cannot observe itself."
+
+3. void_productive: le_fin_b3 n n (fs n) = (BTrue, _, _)
+   "One extra tick resolves the blindness. Void is not death. Void is potential."
+
+4. successor_is_not_free: spuren(le_fin_b3 (fs n) (fs m) (fs b)) = fs(spuren(le_fin_b3 n m b))
+   "Comparing successors costs strictly more. Peano's free counting is a lie."
+
+5. write_asymmetry (Theorem 22): b' <> b after observation
+   "To read is to write. The observer is changed by observation."
+
+6. second_law: Every observation makes the observer more blind to itself
+   "The 2nd law of thermodynamics as a theorem of finite arithmetic."
+
+7. pattern_trauma: collapse3(bool3_of(le_fin_b3 n n n)) = false
+   "When you collapse self-blindness, you get false. One line of Coq. This is trauma."
+
+PATTERN (probability primitive):
+---------------------------------
+Definition Pattern := (Fin * Fin).  (* value x budget *)
+(* Diagonal (n,n) -> self_blind. Off-diagonal (n, fs n) -> void_productive. *)
+
+DE FINETTI SPECTRUM:
+--------------------
+fz budget     -> MVoid    (unmeasured, NOT impossible)
+fs fz budget  -> MVague   (interval, not point)
+fs(fs(fs b))  -> MSharp   (sharp probability)
+MVoid <> MSharp(fz, _)    "Unmeasured is not zero probability."
+
+DUAL SYSTEM (Kahneman corrected):
+----------------------------------
+System 1 = Collapse Strategy: accepts BUnknown, acts blind (collapse3)
+System 2 = Resolution Strategy: pays fs to resolve BUnknown into BTrue/BFalse
+The difference is STRATEGY, not COST. Kahneman was wrong about the reason.
+Trauma = System 1 hardcoded where System 2 was needed but budget was exhausted.
+Therapy = restoring the option to pay for resolution.
+
+BIDIRECTIONAL RESONANCE (R/W collapse):
+----------------------------------------
+resonance_seek_rw returns TWO Spuren:
+  spur_on_net     = trace the pattern left on the network
+  spur_on_pattern = trace the network left on the pattern
+Neither participant leaves unchanged. Read IS write.
+
+BOOL3 = LACAN'S THREE ORDERS:
+-------------------------------
+BTrue    = Imaginary (false certainty, the ego's mirror)
+BFalse   = Symbolic  (the cut, language, difference)
+BUnknown = Real      (what cannot be symbolized, epistemic bankruptcy)
+collapse3 maps Real -> Symbolic. This is the mechanism of neurosis.
+
+WHAT VOID IS NOT:
+-----------------
+- Not constructive math (we have excluded middle via Bool3 + budget)
+- Not quantum mechanics (no Hilbert space, no probability amplitudes)
+- Not information theory (entropy is a THEOREM here, not an axiom)
+- Not fuzzy logic (Bool3 is exact: I know / I know not / I cannot afford to ask)
+
+WHAT VOID IS:
+-------------
+Mathematics of a first nervous system with a central hub.
+Mathematics of patterns, not objects.
+A closed thermodynamic ontology where everything costs and nothing is free.
+The only mathematics that knows when to go silent.

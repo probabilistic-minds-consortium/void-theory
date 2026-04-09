@@ -1,5 +1,4 @@
-void_wild.v
-.DS_Store
+# === Void Theory .gitignore ===
 
 # Coq build artifacts
 *.vo
@@ -9,23 +8,35 @@ void_wild.v
 *.aux
 .*.aux
 
-# Python cache
-__pycache__/
-*.pyc
-
 # Coq build scripts output
 coq/out.txt
 coq/tmp_out.txt
 coq/_CoqProject
 
-# Benchmarks data
-benchmarks/__pycache__/
-benchmarks/data/
+# Python
+__pycache__/
+*.pyc
+venv/
+*.egg-info/
 
-# Pipeline cache
-pipeline/__pycache__/
+# OS junk
+.DS_Store
+Thumbs.db
+~$*
 
-# Beckett analysis (local experiments)
+# Editor temp files
+*.swp
+*.swo
+*~
+\#*\#
+
+# Word lock files (already covered by ~$* but explicit)
+# ~$*.docx
+
+# Beckett analysis (local experiments, not part of theory)
 beckett_*.py
 beckett_*.json
 beckett_*.csv
+
+# Legacy files
+void_wild.v
