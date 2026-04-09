@@ -1,7 +1,13 @@
 (******************************************************************************)
-(* void_resonance.v - BUDGET-AWARE RESONANCE CASCADES                        *)
-(* Patterns find resonant locations and amplify, but everything costs        *)
-(* CLEANED: All operations cost one tick, costs emerge from context          *)
+(* void_resonance.v - BIDIRECTIONAL RESONANCE CASCADES                       *)
+(* Two systems exchange Spuren: the seeker marks the found,                  *)
+(* and the found marks the seeker. READ IS WRITE.                            *)
+(*                                                                            *)
+(* POST-R/W COLLAPSE: resonance is not a pattern "finding" a location.      *)
+(* It is two systems writing on each other simultaneously.                   *)
+(* The seeker leaves a trace (SpurenA) on the network.                      *)
+(* The network leaves a trace (SpurenB) on the seeker.                      *)
+(* Neither can resonate without being changed by the resonance.              *)
 (******************************************************************************)
 
 Require Import void_finite_minimal.
@@ -55,78 +61,35 @@ Record ResonantPattern := {
 }.
 
 (******************************************************************************)
-(* READ OPERATIONS - Access existing resonance structure                      *)
+(* STRUCTURAL PROJECTIONS                                                    *)
+(* These are record field accesses — definitional in Coq, zero-cost.        *)
+(* They are NOT epistemological reads. A record projection is syntax,        *)
+(* not observation. The system does not "look at" its own field;            *)
+(* the field IS the system. No budget consumed, no Spuren produced.         *)
+(* Contrast with le_fin_b3: THAT is an observation. It costs.              *)
 (******************************************************************************)
 
-(* Read location frequency - structural *)
 Definition read_frequency (loc : ResonantLocation) : FinProb :=
   base_frequency loc.
 
-Instance frequency_read : ReadOperation ResonantLocation FinProb := {
-  read_op := read_frequency
-}.
-
-(* Read current amplitude - structural *)
 Definition read_amplitude (loc : ResonantLocation) : FinProb :=
   current_amplitude loc.
 
-Instance amplitude_read : ReadOperation ResonantLocation FinProb := {
-  read_op := read_amplitude
-}.
-
-(* Read damping factor - structural *)
 Definition read_damping (loc : ResonantLocation) : Fin :=
   damping loc.
 
-Instance damping_read : ReadOperation ResonantLocation Fin := {
-  read_op := read_damping
-}.
-
-(* Check if pattern budget is exhausted - structural *)
 Definition read_pattern_exhausted (rp : ResonantPattern) : bool :=
   match resonance_budget rp with
   | fz => true
   | _ => false
   end.
 
-Instance pattern_exhaustion_read : ReadOperation ResonantPattern bool := {
-  read_op := read_pattern_exhausted
-}.
-
 (******************************************************************************)
-(* DYNAMIC COST FUNCTIONS - Costs emerge from context                        *)
+(* COST — always one tick. Complexity emerges from iteration, not pricing.  *)
 (******************************************************************************)
 
-(* Frequency matching cost depends on precision needed - READ operation *)
-Definition frequency_match_cost_dynamic (network_budget : Budget) : Fin :=
-  match network_budget with
-  | fz => operation_cost      (* No budget: basic cost *)
-  | _ => operation_cost       (* Always one tick - precision affects success rate *)
-  end.
-
-Instance freq_match_cost_read : ReadOperation Budget Fin := {
-  read_op := frequency_match_cost_dynamic
-}.
-
-(* Jump cost depends on distance and network state - READ operation *)
-Definition resonance_jump_cost_dynamic (from_loc to_loc : Fin) (b : Budget) : Fin :=
-  (* Cost is always one tick - distance affects success probability *)
-  operation_cost.
-
-Instance jump_cost_read : ReadOperation (Fin * Fin * Budget) Fin := {
-  read_op := fun '(from, to, b) => resonance_jump_cost_dynamic from to b
-}.
-
-(* Cascade cost depends on network load - READ operation *)
-Definition cascade_step_cost_dynamic (net : NetworkState) : Fin :=
-  match network_budget net with
-  | fz => operation_cost      (* Exhausted: still one tick but likely to fail *)
-  | _ => operation_cost       (* Normal: one tick *)
-  end.
-
-Instance cascade_cost_read : ReadOperation NetworkState Fin := {
-  read_op := cascade_step_cost_dynamic
-}.
+(* All resonance operations cost one tick. No magic thresholds.              *)
+(* "Expensive" means many iterations, not a higher unit price.              *)
 
 (******************************************************************************)
 (* WRITE OPERATIONS - Change resonance state                                 *)
@@ -138,7 +101,7 @@ Definition dist_prob_b (p1 p2 : FinProb) (b : Budget) : (FinProb * Budget) :=
   | (dist, b') => ((dist, snd p1), b')
   end.
 
-(* Check frequency match - WRITE operation (computes new information) *)
+(* Check frequency match — costs budget, produces Spuren *)
 Definition write_frequency_match (p_freq loc_freq : FinProb) (threshold : Fin) (b : Budget)
   : (bool * Budget * Spuren) :=
   match b with
@@ -152,19 +115,13 @@ Definition write_frequency_match (p_freq loc_freq : FinProb) (threshold : Fin) (
       end
   end.
 
-Instance frequency_match_write : WriteOperation (FinProb * FinProb * Fin) bool := {
-  write_op := fun '(p_freq, loc_freq, threshold) => 
-    write_frequency_match p_freq loc_freq threshold
-}.
-
-(* Find resonant location - WRITE operation *)
-Fixpoint write_find_resonant (rp : ResonantPattern) (locs : list ResonantLocation) 
+(* Find resonant location — costs Spuren per location checked *)
+Fixpoint write_find_resonant (rp : ResonantPattern) (locs : list ResonantLocation)
                              (b : Budget) : (option ResonantLocation * Budget * Spuren) :=
   match locs, b with
   | [], _ => (None, b, fz)
   | _, fz => (None, fz, fz)
   | loc :: rest, fs b' =>
-      (* Simplified threshold *)
       match write_frequency_match (strength (pattern rp)) (base_frequency loc) (fs fz) b' with
       | (true, b'', h) => (Some loc, b'', h)
       | (false, b'', h) =>
@@ -174,43 +131,37 @@ Fixpoint write_find_resonant (rp : ResonantPattern) (locs : list ResonantLocatio
       end
   end.
 
-Instance find_resonant_write : WriteOperation (ResonantPattern * list ResonantLocation) 
-                                             (option ResonantLocation) := {
-  write_op := fun '(rp, locs) => write_find_resonant rp locs
-}.
-
-(* Jump to resonant location - WRITE operation *)
-Definition write_resonance_jump (rp : ResonantPattern) (target : ResonantLocation) 
+(* Jump to resonant location — pattern writes itself onto new position *)
+Definition write_resonance_jump (rp : ResonantPattern) (target : ResonantLocation)
                                 (b : Budget) : (ResonantPattern * Budget * Spuren) :=
   match b with
   | fz => (rp, fz, fz)
   | fs b' =>
-      (* Update pattern location *)
       let new_pattern := {| location := loc_id target;
                            strength := strength (pattern rp) |} in
       ({| pattern := new_pattern;
           resonance_budget := resonance_budget rp |}, b', fs fz)
   end.
 
-Instance resonance_jump_write : WriteOperation (ResonantPattern * ResonantLocation) 
-                                              ResonantPattern := {
-  write_op := fun '(rp, target) => write_resonance_jump rp target
-}.
+(******************************************************************************)
+(* BIDIRECTIONAL AMPLIFICATION — THE HEART OF R/W RESONANCE                  *)
+(* This is the only function where both participants change:                 *)
+(*   - Pattern gets new strength  (trace of location on pattern)            *)
+(*   - Location gets new amplitude (trace of pattern on location)           *)
+(* Neither leaves the exchange unchanged. write_asymmetry in action.        *)
+(******************************************************************************)
 
-(* Amplify at resonant location - WRITE operation *)
 Definition write_amplify (rp : ResonantPattern) (loc : ResonantLocation) (b : Budget)
   : (ResonantPattern * ResonantLocation * Budget * Spuren) :=
   match b with
   | fz => (rp, loc, fz, fz)
   | fs b' =>
-      (* Amplify pattern strength *)
       match add_prob_b (strength (pattern rp)) (current_amplitude loc) b' with
       | (new_strength, b'') =>
           let new_pattern := {| location := location (pattern rp);
                                strength := new_strength |} in
           let new_rp := {| pattern := new_pattern;
                           resonance_budget := resonance_budget rp |} in
-          (* Update location amplitude *)
           let new_loc := {| loc_id := loc_id loc;
                            base_frequency := base_frequency loc;
                            damping := damping loc;
@@ -218,14 +169,6 @@ Definition write_amplify (rp : ResonantPattern) (loc : ResonantLocation) (b : Bu
           (new_rp, new_loc, b'', fs fz)
       end
   end.
-
-Instance amplify_write : WriteOperation (ResonantPattern * ResonantLocation)
-                                       (ResonantPattern * ResonantLocation) := {
-  write_op := fun '(rp, loc) b =>
-    match write_amplify rp loc b with
-    | (rp', loc', b', h) => ((rp', loc'), b', h)
-    end
-}.
 
 (* Apply damping - WRITE operation *)
 Definition write_apply_damping (loc : ResonantLocation) (b : Budget)
@@ -243,9 +186,6 @@ Definition write_apply_damping (loc : ResonantLocation) (b : Budget)
       end
   end.
 
-Instance damping_write : WriteOperation ResonantLocation ResonantLocation := {
-  write_op := write_apply_damping
-}.
 
 (* Cascade step - WRITE operation *)
 Definition write_cascade_step (net : NetworkState) (b : Budget) 
@@ -274,57 +214,87 @@ Definition write_cascade_step (net : NetworkState) (b : Budget)
       end
   end.
 
-Instance cascade_step_write : WriteOperation NetworkState NetworkState := {
-  write_op := write_cascade_step
-}.
-
-(******************************************************************************)
-(* HELPER FUNCTIONS                                                          *)
-(******************************************************************************)
-
-(* Add probabilities with budget *)
-Definition add_prob_b (p1 p2 : FinProb) (b : Budget) : (FinProb * Budget) :=
-  let (n1, d1) := p1 in
-  let (n2, d2) := p2 in
-  match fin_eq_b d1 d2 b with
-  | (true, b1) =>
-      match add_fin n1 n2 b1 with
-      | (sum, b2) => ((sum, d1), b2)
-      end
-  | (false, b1) =>
-      match mult_fin n1 d2 b1 with
-      | (v1, b2) =>
-          match mult_fin n2 d1 b2 with
-          | (v2, b3) =>
-              match add_fin v1 v2 b3 with
-              | (new_n, b4) =>
-                  match mult_fin d1 d2 b4 with
-                  | (new_d, b5) => ((new_n, new_d), b5)
-                  end
-              end
-          end
-      end
-  end.
 
 (******************************************************************************)
 (* COMPOSITE OPERATIONS                                                       *)
 (******************************************************************************)
 
-(* Find and jump to resonant location - combines READ and WRITE *)
-Definition resonance_seek (rp : ResonantPattern) (net : NetworkState) 
-  : (ResonantPattern * NetworkState) :=
-  match write_find_resonant rp (locations net) (network_budget net) with
-  | (Some loc, b', h) =>
-      match write_resonance_jump rp loc b' with
-      | (new_rp, b'', h') =>
-          (new_rp, {| locations := locations net;
-                     global_phase := global_phase net;
-                     network_budget := b'' |})
+(* Replace a location in the network by loc_id match *)
+Fixpoint replace_location (locs : list ResonantLocation) (new_loc : ResonantLocation)
+  : list ResonantLocation :=
+  match locs with
+  | [] => [new_loc]
+  | loc :: rest =>
+      match fin_eq (loc_id loc) (loc_id new_loc) with
+      | true => new_loc :: rest
+      | false => loc :: replace_location rest new_loc
       end
-  | (None, b', h) =>
-      (rp, {| locations := locations net;
-             global_phase := global_phase net;
-             network_budget := b' |})
+  end.
+
+(******************************************************************************)
+(* RESONANCE_SEEK_RW — BIDIRECTIONAL RESONANCE                               *)
+(*                                                                            *)
+(* This is the corrected resonance operation after R/W collapse.             *)
+(* Old resonance_seek was unidirectional: pattern seeks, finds, jumps.       *)
+(* The network was a passive landscape. This violated write_asymmetry.       *)
+(*                                                                            *)
+(* New resonance_seek_rw:                                                    *)
+(*   1. Pattern SEARCHES network (costs search_spur — paid by seeker)       *)
+(*   2. If found: pattern JUMPS to location (costs jump_spur)               *)
+(*   3. AMPLIFY — the BIDIRECTIONAL heart:                                   *)
+(*      - Pattern gets new strength (location writes on pattern)            *)
+(*      - Location gets new amplitude (pattern writes on location)          *)
+(*   4. Returns TWO Spuren:                                                  *)
+(*      - spur_on_net:     trace the pattern left on the network            *)
+(*      - spur_on_pattern: trace the network left on the pattern            *)
+(*                                                                            *)
+(* Neither participant leaves unchanged. This is autopoiesis:                *)
+(* the observer changes the observed AND the observed changes the observer.  *)
+(******************************************************************************)
+
+Definition resonance_seek_rw (rp : ResonantPattern) (net : NetworkState) (b : Budget)
+  : (ResonantPattern * NetworkState * Budget * Spuren * Spuren) :=
+  (* Returns: (rp', net', remaining_b, spur_on_net, spur_on_pattern) *)
+  match b with
+  | fz => (rp, net, fz, fz, fz)
+  | fs b' =>
+      match write_find_resonant rp (locations net) b' with
+      | (None, b1, search_spur) =>
+          (* No resonance found. Pattern paid search cost, got nothing. *)
+          (* But: the SEARCH ITSELF changed the pattern's budget.       *)
+          (* Even failed observation is observation. search_spur ≠ fz.  *)
+          let new_net := {| locations := locations net;
+                           global_phase := global_phase net;
+                           network_budget := b1 |} in
+          (rp, new_net, b1, fz, search_spur)
+
+      | (Some loc, b1, search_spur) =>
+          (* Found resonance. Now: jump + bidirectional amplification. *)
+          match write_resonance_jump rp loc b1 with
+          | (jumped_rp, b2, jump_spur) =>
+              match write_amplify jumped_rp loc b2 with
+              | (new_rp, new_loc, b3, amplify_spur) =>
+                  (* new_rp:  pattern changed by location (new strength)  *)
+                  (* new_loc: location changed by pattern (new amplitude) *)
+                  let new_locs := replace_location (locations net) new_loc in
+                  let new_net := {| locations := new_locs;
+                                   global_phase := global_phase net;
+                                   network_budget := b3 |} in
+                  let spur_on_net := amplify_spur in
+                  let spur_on_pattern := add_spur search_spur
+                                          (add_spur jump_spur amplify_spur) in
+                  (new_rp, new_net, b3, spur_on_net, spur_on_pattern)
+              end
+          end
+      end
+  end.
+
+(* Backward compatibility wrapper — old unidirectional interface.            *)
+(* Drops the Spuren. Use resonance_seek_rw for correct thermodynamics.      *)
+Definition resonance_seek (rp : ResonantPattern) (net : NetworkState)
+  : (ResonantPattern * NetworkState) :=
+  match resonance_seek_rw rp net (network_budget net) with
+  | (rp', net', _, _, _) => (rp', net')
   end.
 
 (******************************************************************************)
@@ -334,30 +304,34 @@ Definition resonance_seek (rp : ResonantPattern) (net : NetworkState)
 Definition ResonantLocation_ext := ResonantLocation.
 Definition NetworkState_ext := NetworkState.
 Definition ResonantPattern_ext := ResonantPattern.
-Definition resonance_seek_ext := resonance_seek.
+Definition resonance_seek_rw_ext := resonance_seek_rw.
+Definition resonance_seek_ext := resonance_seek.   (* backward compat *)
 
 (******************************************************************************)
-(* PHILOSOPHICAL NOTE                                                         *)
+(* PHILOSOPHICAL CODA — POST-R/W COLLAPSE                                    *)
+(*                                                                            *)
+(* Resonance is not a pattern "finding" a location.                          *)
+(* It is two systems WRITING ON EACH OTHER simultaneously.                   *)
+(*                                                                            *)
+(* The old model (resonance_seek): the network is a passive landscape.      *)
+(* The pattern moves through it like a tourist. The landscape does not care. *)
+(* This is the lie of classical computation: read without trace.             *)
+(*                                                                            *)
+(* The new model (resonance_seek_rw):                                        *)
+(*   - The pattern writes itself onto the location (amplify_spur on net)    *)
+(*   - The location writes itself onto the pattern (search + jump + amplify *)
+(*     spuren on pattern)                                                    *)
+(*   - Neither can resonate without being changed by the resonance          *)
+(*   - Even FAILED search costs the pattern (search_spur ≠ fz when b > 0)  *)
+(*                                                                            *)
+(* Resonance is mutual metabolic exchange. Not information retrieval.        *)
+(* Two organisms, touching, both changed. Maturana's structural coupling,   *)
+(* compiled.                                                                  *)
+(*                                                                            *)
+(* The asymmetry (write_asymmetry, tw. 22):                                  *)
+(*   - The pattern (seeker) is BLIND to its own transformation              *)
+(*   - The location (found) receives the full imprint                       *)
+(*   - The seeker thinks it "found" something. In truth, it was found.      *)
 (******************************************************************************)
-
-(* Resonance in void mathematics embodies thermodynamic truth:
-   
-   1. ONE TICK PER OPERATION - Finding resonance, jumping, amplifying -
-      all cost exactly one tick. No operation is "harder."
-   
-   2. COSTS EMERGE FROM CONTEXT - An exhausted network doesn't pay more
-      per operation; it simply fails more often, requiring more attempts.
-   
-   3. NO MAGIC THRESHOLDS - Resonance matching uses simple comparisons
-      without privileged frequencies or special distances.
-   
-   4. DAMPING IS UNIFORM - Every location decays at one tick per step.
-      Complex dynamics emerge from iteration, not from magic constants.
-   
-   5. CASCADES EXHAUST NATURALLY - Not through artificial limits but
-      through accumulated single-tick operations depleting resources.
-   
-   This models resonance where complexity emerges from resource scarcity,
-   not from arbitrary difficulty assignments. *)
 
 End Void_Resonance_Cascades.

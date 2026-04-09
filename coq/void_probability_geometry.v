@@ -1468,6 +1468,165 @@ Proof.
     + inversion Hlt; subst. apply IH. exact H1.
 Qed.
 
+(******************************************************************************)
+(* SECTION XVII: PATTERN, NOT OBJECT                                         *)
+(*                                                                            *)
+(* Peano builds OBJECTS: 0, S 0, S (S 0) — each a concrete, distinct thing. *)
+(* Void builds PATTERNS: pairs (value, budget) where the relationship        *)
+(* between value and budget determines what the system can know.             *)
+(*                                                                            *)
+(* A Pattern is not a thing. It is a STATE OF ACTIVITY — how much was done   *)
+(* (value) relative to how much can still be done (budget).                  *)
+(* The ontology is not of objects but of metabolic configurations.           *)
+(*                                                                            *)
+(* Conceived as mathematics of a first nervous system with a central hub:    *)
+(* le_fin_b3 takes (value, threshold, budget) and returns                    *)
+(* (verdict, remaining_budget, heat). The hub integrates, decides, and pays. *)
+(******************************************************************************)
+
+(* A Pattern is a pair: what-was-computed × what-remains.                    *)
+(* Not a number. A metabolic configuration.                                  *)
+Definition Pattern := (Fin * Fin)%type.
+
+Definition pattern_value (p : Pattern) : Fin := fst p.
+Definition pattern_budget (p : Pattern) : Fin := snd p.
+
+(* DIAGONAL PATTERN: value = budget.                                         *)
+(* The system tries to measure itself with itself.                           *)
+(* Result: ALWAYS BUnknown. Self-blindness is a property of the diagonal.   *)
+Theorem pattern_self_blind : forall n,
+  bool3_of (le_fin_b3 n n n) = BUnknown.
+Proof. exact self_blind. Qed.
+
+(* OFF-DIAGONAL PATTERN: budget = fs(value).                                 *)
+(* The system has one tick MORE than what it measures.                       *)
+(* Result: ALWAYS BTrue. One tick resolves the blindness.                    *)
+(* This is the minimal departure from the diagonal that restores sight.     *)
+Theorem pattern_void_productive : forall n,
+  bool3_of (le_fin_b3 n n (fs n)) = BTrue.
+Proof. exact void_productive. Qed.
+
+(* THE SUCCESSOR TAX ON PATTERNS:                                            *)
+(* Moving from pattern (n, b) to pattern (fs n, fs b) preserves the          *)
+(* diagonal/off-diagonal structure but costs one more tick of heat.          *)
+(* Pattern growth is never free.                                             *)
+Theorem pattern_successor_tax : forall n b r b'' h,
+  le_fin_b3 n n b = (r, b'', h) ->
+  le_fin_b3 (fs n) (fs n) (fs b) = (r, b'', fs h).
+Proof. exact (fun n b => successor_costs_more_le n n b). Qed.
+
+(* COLLAPSE AS PATTERN DESTRUCTION:                                          *)
+(* collapse3 maps Bool3 to bool, erasing BUnknown.                          *)
+(* On the diagonal pattern (n, n), this turns BUnknown into false.          *)
+(* The system that cannot afford self-knowledge is told "no" instead of     *)
+(* "I cannot afford to ask." This is the mechanism of trauma:               *)
+(* refusing the Real (BUnknown) by forcing the Symbolic (false).            *)
+Theorem pattern_trauma : forall n,
+  collapse3 (bool3_of (le_fin_b3 n n n)) = false.
+Proof.
+  intro n. rewrite self_blind. simpl. reflexivity.
+Qed.
+
+(******************************************************************************)
+(* SECTION XVIII: PROBABILITY CONDITIONED BY BUDGET                          *)
+(*                                                                            *)
+(* De Finetti (1970): "Probability does not exist."                          *)
+(* Nau (2001): "Probability uncontaminated by attitudes toward money         *)
+(*              does not exist."                                             *)
+(* Void-theory: probability uncontaminated by BUDGET does not exist.         *)
+(*                                                                            *)
+(* The measure_region function returns categorically different types          *)
+(* of answers depending on budget:                                           *)
+(*   fz           -> MVoid  (cannot afford to ask)                           *)
+(*   fs fz        -> MVague (rough interval)                                 *)
+(*   fs(fs(fs b)) -> MSharp (precise fraction)                               *)
+(*                                                                            *)
+(* These are not different PRECISIONS of the same answer.                    *)
+(* They are different KINDS of answer. MVoid is not zero.                    *)
+(* MVague is not imprecise MSharp. The budget determines not just            *)
+(* how well you know, but WHETHER you know at all.                           *)
+(*                                                                            *)
+(* Observation is a bet: you stake budget for a chance at resolution.        *)
+(* You always pay (Spuren). You do not always win (BUnknown).               *)
+(* But even BUnknown is information: it tells you your budget state.         *)
+(******************************************************************************)
+
+(* MVoid is NOT zero probability. It is unmeasured.                          *)
+(* Classical mathematics conflates "P(A) = 0" with "A is impossible."       *)
+(* Void-theory distinguishes: MVoid = "I cannot afford to measure A."       *)
+(* MSharp(fz, _) = "I measured A and it has zero weight."                   *)
+(* These are fundamentally different epistemic states.                        *)
+Theorem void_is_not_zero : forall denom,
+  MVoid <> MSharp (fz, denom).
+Proof. intros denom H. discriminate H. Qed.
+
+(* THE DE FINETTI SPECTRUM: budget determines the KIND of answer.            *)
+(* Three budget levels, three categorically different results.               *)
+(* This is not gradual degradation. It is phase transition.                  *)
+
+Theorem deFinetti_void : forall r s,
+  fst (fst (measure_region r s fz)) = MVoid.
+Proof. exact zero_budget_yields_void. Qed.
+
+Theorem deFinetti_vague : forall r s,
+  exists lo hi, fst (fst (measure_region r s (fs fz))) = MVague lo hi.
+Proof. exact budget_one_gives_vague. Qed.
+
+Theorem deFinetti_sharp : forall r s b,
+  exists p b' h, measure_region r s (fs (fs (fs b))) = (MSharp p, b', h).
+Proof. exact budget_sufficient_gives_sharp. Qed.
+
+(* OBSERVATION IS A BET: you always pay, you do not always win.             *)
+(* Invoking le_fin_b3 n m b is a wager:                                     *)
+(*   Stake: budget b                                                         *)
+(*   If b > 0: you pay Spuren (always), you get BTrue/BFalse/BUnknown      *)
+(*   If b = 0: you pay nothing, you get BUnknown (cannot afford to ask)     *)
+(*                                                                            *)
+(* Win = BTrue or BFalse (you learn n <= m or n > m)                        *)
+(* Draw = BUnknown with b > 0 (you paid but learned only your limit)        *)
+(* Fold = BUnknown with b = 0 (you cannot enter the game)                   *)
+(*                                                                            *)
+(* The asymmetry: you ALWAYS pay when b > 0 (no_free_lunch_le).             *)
+(* But BUnknown is not "nothing" — it is self-knowledge.                    *)
+(* You learn that your budget is insufficient. This is the Real.            *)
+
+Theorem observation_always_costs : forall n m b res b' h,
+  le_fin_b3 n m (fs b) = (res, b', h) -> h <> fz.
+Proof. exact no_free_lunch_le. Qed.
+
+Theorem observation_bankrupt_is_silent : forall n m,
+  bool3_of (le_fin_b3 n m fz) = BUnknown.
+Proof.
+  unfold bool3_of. intros n m.
+  induction n as [| n' IH].
+  - simpl. reflexivity.
+  - destruct m; simpl; reflexivity.
+Qed.
+
+(* THE BET PRODUCES HEAT REGARDLESS OF OUTCOME:                              *)
+(* Whether the result is BTrue, BFalse, or BUnknown,                        *)
+(* if you had budget, you spent it. The only way to produce no heat          *)
+(* is to have no budget. Silence is free. Everything else costs.             *)
+Theorem silence_is_free : forall n m,
+  spuren_of_b3 (le_fin_b3 n m fz) = fz.
+Proof.
+  unfold spuren_of_b3. intros n m.
+  induction n as [| n' IH].
+  - simpl. reflexivity.
+  - destruct m; simpl; reflexivity.
+Qed.
+
+Theorem speech_is_not : forall n m b,
+  spuren_of_b3 (le_fin_b3 n m (fs b)) <> fz.
+Proof.
+  intros n m b.
+  unfold spuren_of_b3.
+  destruct (le_fin_b3 n m (fs b)) as [[r b'] h] eqn:Heq.
+  simpl.
+  pose proof (no_free_lunch_le _ _ _ _ _ _ Heq) as H.
+  exact H.
+Qed.
+
 (* SUMMARY: What void-theory proves that classical mathematics cannot.       *)
 (*                                                                            *)
 (* 1. The Caretaker Lemma — knowledge never reverses (after Kirby)           *)
@@ -1520,11 +1679,27 @@ Qed.
 (* 25. Dormant Spuren — Spuren are conserved but invisible to producer.      *)
 (*     External observer can verify they exist — but becomes blind too.      *)
 (*     Nobody holds the complete picture. Each piece costs self-transparency. *)
+(* 26. Pattern self-blind — self_blind as property of diagonal (n,n) pair.   *)
+(*     Object does not exist. Pattern = (value, budget). When they collide:  *)
+(*     BUnknown. Mathematics of patterns, not objects.                       *)
+(* 27. Pattern void-productive — (n, fs n) restores sight.                   *)
+(*     Minimal departure from diagonal. One tick. First nervous system.      *)
+(* 28. Pattern trauma — collapse3 on diagonal = false.                       *)
+(*     Refusing BUnknown by forcing false. The mechanism of trauma.          *)
+(*     Lacan's Real erased by the Symbolic. One line of code.                *)
+(* 29. Void is not zero — MVoid <> MSharp(fz, _).                           *)
+(*     Unmeasured is not impossible. De Finetti's core insight, compiled.    *)
+(* 30. Observation always costs — le_fin_b3 with fs b produces h <> fz.     *)
+(*     Every bet has a price. No free lunch, no free observation.            *)
+(* 31. Silence is free — le_fin_b3 with fz produces fz Spuren.              *)
+(*     The only free act is not acting. Bankrupt systems generate no heat.   *)
+(* 32. Speech is not — le_fin_b3 with fs b produces h <> fz.                *)
+(*     If you can afford to ask, you WILL pay. The asymmetry of the bet.    *)
 (*                                                                            *)
 (* All Qed. All derived from Fin, Budget, Spuren, and conservation.          *)
 (* Zero axioms in this file. Zero Admitted in the codebase.                  *)
 (* Classical mathematics proves the opposite of (4) and cannot state          *)
-(* (1), (5)-(25).                                                            *)
+(* (1), (5)-(32).                                                            *)
 (* Physics agrees with us, not with them.                                     *)
 (******************************************************************************)
 

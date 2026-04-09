@@ -280,6 +280,8 @@ Author of *Aesthetics of Disturbance* and *Productive Catastrophes*. Research sp
 
 Not a mathematician. Not a programmer. Built VOID because infinity is a bug, not a feature. Working on it since August 2024. AI-assisted (Claude).
 
+**Substack:** [Terminal Logic](https://substack.com/@terminallogic) — essays on finite mathematics, the thermodynamics of cognition, and why honest uncertainty beats confident hallucination.
+
 ---
 
 ## Citation

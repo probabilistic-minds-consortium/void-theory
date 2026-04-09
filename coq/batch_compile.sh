@@ -19,7 +19,7 @@ files=(
 
 for f in "${files[@]}"; do
   if [ -f "${f}.v" ]; then
-    output=$(/tmp/coq-local/usr/bin/coqc -Q . "" "${f}.v" 2>&1)
+    output=$(coqc -Q . "" "${f}.v" 2>&1)
     if [ $? -eq 0 ]; then
       echo "OK: ${f}.v"
     else

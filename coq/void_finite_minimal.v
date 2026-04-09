@@ -253,6 +253,63 @@ Qed.
 
 
 (******************************************************************************)
+(* SUCCESSOR IS NOT FREE — The tax on fs.                                    *)
+(*                                                                            *)
+(* Peano: S n costs nothing. Comparing S n with S m costs the same as        *)
+(* comparing n with m.                                                        *)
+(* VOID: fs n costs ONE MORE TICK than n. Comparing fs n with fs m           *)
+(* using budget fs b produces fs h Spuren, where h is the Spuren from        *)
+(* comparing n with m using b. The successor adds exactly one tick of cost.  *)
+(* This is NOT a design choice. It FOLLOWS from the definition of le_fin_b3  *)
+(* and fin_eq_b3. The successor is structurally expensive.                   *)
+(******************************************************************************)
+
+Theorem successor_costs_more_le : forall n m b r b'' h,
+  le_fin_b3 n m b = (r, b'', h) ->
+  le_fin_b3 (fs n) (fs m) (fs b) = (r, b'', fs h).
+Proof.
+  intros n m b r b'' h Heq.
+  simpl. rewrite Heq. reflexivity.
+Qed.
+
+Theorem successor_costs_more_eq : forall n m b r b'' h,
+  fin_eq_b3 n m b = (r, b'', h) ->
+  fin_eq_b3 (fs n) (fs m) (fs b) = (r, b'', fs h).
+Proof.
+  intros n m b r b'' h Heq.
+  simpl. rewrite Heq. reflexivity.
+Qed.
+
+(* The combined statement: successor adds exactly one tick of heat.          *)
+(* The Spuren of comparing successors is always fs(Spuren of predecessors).  *)
+(* Peano promised free counting. This theorem is the invoice.                *)
+
+Definition spuren_of_b3 (x : Bool3 * Budget * Spuren) : Spuren :=
+  match x with (_, _, h) => h end.
+
+Corollary successor_is_not_free_le : forall n m b,
+  spuren_of_b3 (le_fin_b3 (fs n) (fs m) (fs b)) =
+  fs (spuren_of_b3 (le_fin_b3 n m b)).
+Proof.
+  intros n m b.
+  unfold spuren_of_b3.
+  destruct (le_fin_b3 n m b) as [[r b''] h] eqn:Heq.
+  rewrite (successor_costs_more_le _ _ _ _ _ _ Heq).
+  reflexivity.
+Qed.
+
+Corollary successor_is_not_free_eq : forall n m b,
+  spuren_of_b3 (fin_eq_b3 (fs n) (fs m) (fs b)) =
+  fs (spuren_of_b3 (fin_eq_b3 n m b)).
+Proof.
+  intros n m b.
+  unfold spuren_of_b3.
+  destruct (fin_eq_b3 n m b) as [[r b''] h] eqn:Heq.
+  rewrite (successor_costs_more_eq _ _ _ _ _ _ Heq).
+  reflexivity.
+Qed.
+
+(******************************************************************************)
 (* Collapse UnknownÃ¢â€ â€™false (WITH SPUREN)                                        *)
 (******************************************************************************)
 
