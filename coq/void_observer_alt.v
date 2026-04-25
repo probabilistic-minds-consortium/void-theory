@@ -136,20 +136,9 @@ Definition is_recurrence (attr : option Attractor) (threshold : Fin) (b : Budget
     le_fin_b3 threshold (attr_count a) b
   end.
 
-(* THEOREM: In a finite state space, all trajectories eventually recur.     *)
-(* This is the pigeonhole principle as existential dread:                    *)
-(* if you have more steps than states, you MUST revisit.                    *)
-(* The only question is: which wound do you return to?                      *)
-(*                                                                           *)
-(* We state this as axiom because proving it requires decidable equality    *)
-(* on HiddenState under budget — a construction that would itself cost      *)
-(* budget. The STRUCTURE matters: finite space + enough steps = return.     *)
-(* NOTE: Duplicate of Void_Observer.finite_recurrence. Retained locally     *)
-(* for module scoping. See void_observer.v line 748 for original.           *)
-Axiom finite_recurrence : forall (trajectory : Trajectory) (n_steps n_states : Fin),
-  leF n_states n_steps ->
-  n_states <> fz ->
-  exists s, In s trajectory.
+(* REMOVED: finite_recurrence (duplicate of void_observer.v)                *)
+(* See void_observer.v for explanation. Formal statement was disconnected   *)
+(* from its intended meaning (pigeonhole). Zero uses. Removed.              *)
 
 (******************************************************************************)
 (* XVI. ATTENTION-AS-BUDGET — Every Token Has a Price                        *)

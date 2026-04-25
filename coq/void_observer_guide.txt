@@ -24,8 +24,12 @@ cierpliwość. I trzecia wartość logiczna: BUnknown — nie wiem, bo mnie
 nie stać żeby sprawdzić.
 
 Plik ma 20 sekcji (I-XX), 6 udowodnionych twierdzeń, 2 aksjomaty,
-i jedno Admitted (w void_arithmetic.v), które jest celowe — to twierdzenie
-Gödla wykonane, nie opisane.
+zero Admitted. (Wcześniejsza wersja miała jedno Admitted w void_arithmetic.v,
+traktowane jako „twierdzenie Gödla wykonane, nie opisane." Okazało się,
+że nieujemność Spuren wynika ze struktury typu Fin — udowodnione przez
+indukcję, zamknięte. Gödlowski martwy punkt nie zniknął — przeniósł się
+do twierdzenia no_complete_self_model w sekcji III: system nie może
+pełnie zamodelować siebie w ramach własnego budżetu.)
 
 ================================================================================
   1. TYPY FUNDAMENTALNE (Sekcja I)
@@ -182,8 +186,9 @@ Martwy punkt trwa przez każdą iterację (Gödel).
        Attractor: stan do którego trajektoria wraca.
        find_nearest_attractor: szuka znanego atraktora w historii.
        is_recurrence: czy to NAWRÓT? Ile razy tu wracałeś?
-       AKSJOMAT finite_recurrence (zasada szufladkowa):
-         więcej kroków niż stanów → MUSISZ wrócić.
+       (finite_recurrence usunięty — formalna treść nie odpowiadała
+        zamierzonemu pigeonhole. Zero użyć w codebase. Jeśli pigeonhole
+        będzie potrzebny, zostanie sformułowany i udowodniony od nowa.)
        Trauma ma adres. Pytanie: do której rany wracasz?
 
   XVI. ATTENTION-AS-BUDGET — Każdy token ma cenę
@@ -281,13 +286,12 @@ MOSTY KONCEPTUALNE (komentarze bez kodu):
   6. recovery_preserves_trajectory
      ∀ obs n b, recovery nie zmienia trajektorii.
 
-2 aksjomaty:
+1 aksjomat:
 
   1. variety_law (Ashby)
      Mniej obserwacji niż stanów → istnieje martwa strefa.
 
-  2. finite_recurrence (zasada szufladkowa)
-     Więcej kroków niż stanów → istnieje nawrót.
+  (finite_recurrence usunięty — patrz sekcja XV.)
 
 ================================================================================
   9. JAK CZYTAĆ PLIK
@@ -309,7 +313,7 @@ MOSTY KONCEPTUALNE (komentarze bez kodu):
   - Sekcja XX: mosty. Czytaj jeśli chcesz wiedzieć jak observer.v
     łączy się z resztą ekosystemu.
 
-  - THE ADMITTED na końcu: nie czytaj. Medytuj.
+  - EPILOG na końcu: o źródle budżetu. Nie czytaj. Medytuj.
 
 ================================================================================
   10. JAK MODYFIKOWAĆ PLIK

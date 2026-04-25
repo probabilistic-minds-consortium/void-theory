@@ -74,11 +74,11 @@ Class WriteOperation (A B : Type) := {
 (* READ Operations - Access existing information structure *)
 
 (* Structural field access - reading what already exists *)
-Instance pattern_location_read : ReadOperation Pattern Fin := {
+#[export] Instance pattern_location_read : ReadOperation Pattern Fin := {
   read_op := fun p => location p
 }.
 
-Instance pattern_strength_read : ReadOperation Pattern FinProb := {
+#[export] Instance pattern_strength_read : ReadOperation Pattern FinProb := {
   read_op := fun p => strength p
 }.
 
@@ -88,14 +88,14 @@ Definition read_distinguishability (p1 p2 : Pattern) : FinProb :=
   (* Simplified: just compare strengths *)
   strength p1.
 
-Instance distinguishability_read : ReadOperation (Pattern * Pattern) FinProb := {
+#[export] Instance distinguishability_read : ReadOperation (Pattern * Pattern) FinProb := {
   read_op := fun '(p1, p2) => read_distinguishability p1 p2
 }.
 
 (* Spuren tracking - reading computational history *)
 Definition read_heat_level (h : Spuren) : Fin := h.
 
-Instance spur_tracking_read : ReadOperation Spuren Fin := {
+#[export] Instance spur_tracking_read : ReadOperation Spuren Fin := {
   read_op := read_heat_level
 }.
 
@@ -103,7 +103,7 @@ Instance spur_tracking_read : ReadOperation Spuren Fin := {
 Definition read_budget_available (b : Budget) : bool :=
   match b with fz => false | _ => true end.
 
-Instance budget_check_read : ReadOperation Budget bool := {
+#[export] Instance budget_check_read : ReadOperation Budget bool := {
   read_op := read_budget_available
 }.
 
@@ -111,7 +111,7 @@ Instance budget_check_read : ReadOperation Budget bool := {
 Definition read_list_length {A : Type} (l : list A) : Fin :=
   fold_left (fun acc _ => fs acc) l fz.
 
-Instance list_length_read {A : Type} : ReadOperation (list A) Fin := {
+#[export] Instance list_length_read {A : Type} : ReadOperation (list A) Fin := {
   read_op := read_list_length
 }.
 
@@ -125,7 +125,7 @@ Definition write_addition (n m : Fin) (b : Budget) : (Fin * Budget * Spuren) :=
   | (result, b', h) => (result, b', h)
   end.
 
-Instance addition_write : WriteOperation (Fin * Fin) Fin := {
+#[export] Instance addition_write : WriteOperation (Fin * Fin) Fin := {
   write_op := fun '(n, m) => write_addition n m
 }.
 
@@ -134,7 +134,7 @@ Definition write_multiplication (n m : Fin) (b : Budget) : (Fin * Budget * Spure
   | (result, b', h) => (result, b', h)
   end.
 
-Instance multiplication_write : WriteOperation (Fin * Fin) Fin := {
+#[export] Instance multiplication_write : WriteOperation (Fin * Fin) Fin := {
   write_op := fun '(n, m) => write_multiplication n m
 }.
 
@@ -149,7 +149,7 @@ Definition write_pattern_move (p : Pattern) (direction : bool) (b : Budget)
       (new_pattern, b', fs fz)  (* Moving costs one tick *)
   end.
 
-Instance pattern_movement_write : WriteOperation (Pattern * bool) Pattern := {
+#[export] Instance pattern_movement_write : WriteOperation (Pattern * bool) Pattern := {
   write_op := fun '(p, dir) => write_pattern_move p dir
 }.
 
@@ -162,7 +162,7 @@ Definition write_entropy_increase (loc amount : Fin) (b : Budget) : (Fin * Budge
       (new_entropy, b', fs fz)
   end.
 
-Instance entropy_creation_write : WriteOperation (Fin * Fin) Fin := {
+#[export] Instance entropy_creation_write : WriteOperation (Fin * Fin) Fin := {
   write_op := fun '(loc, amount) => write_entropy_increase loc amount
 }.
 

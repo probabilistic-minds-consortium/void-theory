@@ -57,7 +57,7 @@ Record EntropyWell := {
 Definition read_tunnel_history (tp : TunnelingPattern) : list Fin :=
   tunnel_history tp.
 
-Instance tunnel_history_read : ReadOperation TunnelingPattern (list Fin) := {
+#[export] Instance tunnel_history_read : ReadOperation TunnelingPattern (list Fin) := {
   read_op := read_tunnel_history
 }.
 
@@ -68,7 +68,7 @@ Definition read_can_tunnel (tp : TunnelingPattern) : bool :=
   | _ => true
   end.
 
-Instance can_tunnel_read : ReadOperation TunnelingPattern bool := {
+#[export] Instance can_tunnel_read : ReadOperation TunnelingPattern bool := {
   read_op := read_can_tunnel
 }.
 
@@ -79,11 +79,11 @@ Definition read_well_center (w : EntropyWell) : Fin :=
 Definition read_well_depth (w : EntropyWell) : Fin :=
   well_depth w.
 
-Instance well_center_read : ReadOperation EntropyWell Fin := {
+#[export] Instance well_center_read : ReadOperation EntropyWell Fin := {
   read_op := read_well_center
 }.
 
-Instance well_depth_read : ReadOperation EntropyWell Fin := {
+#[export] Instance well_depth_read : ReadOperation EntropyWell Fin := {
   read_op := read_well_depth
 }.
 
@@ -103,7 +103,7 @@ Definition tunnel_threshold_dynamic (tp : TunnelingPattern) : Fin :=
       end
   end.
 
-Instance tunnel_threshold_read : ReadOperation TunnelingPattern Fin := {
+#[export] Instance tunnel_threshold_read : ReadOperation TunnelingPattern Fin := {
   read_op := tunnel_threshold_dynamic
 }.
 
@@ -122,7 +122,7 @@ Definition well_entropy_at_distance (w : EntropyWell) (dist : Fin) : Fin :=
       well_depth w
   end.
 
-Instance well_entropy_read : ReadOperation (EntropyWell * Fin) Fin := {
+#[export] Instance well_entropy_read : ReadOperation (EntropyWell * Fin) Fin := {
   read_op := fun '(w, d) => well_entropy_at_distance w d
 }.
 
@@ -146,7 +146,7 @@ Fixpoint write_get_entropy_at (loc : Fin) (emap : EntropyMap) (b : Budget)
       end
   end.
 
-Instance get_entropy_write : WriteOperation (Fin * EntropyMap) Fin := {
+#[export] Instance get_entropy_write : WriteOperation (Fin * EntropyMap) Fin := {
   write_op := fun '(loc, emap) => write_get_entropy_at loc emap
 }.
 
@@ -165,7 +165,7 @@ Definition write_check_tunnel_condition (loc : Fin) (emap : EntropyMap)
       end
   end.
 
-Instance check_tunnel_write : WriteOperation (Fin * EntropyMap * Fin) bool := {
+#[export] Instance check_tunnel_write : WriteOperation (Fin * EntropyMap * Fin) bool := {
   write_op := fun '(loc, emap, thresh) => write_check_tunnel_condition loc emap thresh
 }.
 
@@ -193,7 +193,7 @@ Definition write_tunnel_jump (tp : TunnelingPattern) (target : Fin)
       end
   end.
 
-Instance tunnel_jump_write : WriteOperation (TunnelingPattern * Fin * EntropyMap) 
+#[export] Instance tunnel_jump_write : WriteOperation (TunnelingPattern * Fin * EntropyMap) 
                                            TunnelingPattern := {
   write_op := fun '(tp, target, emap) => write_tunnel_jump tp target emap
 }.
@@ -211,7 +211,7 @@ Definition write_create_gradient (center : Fin) (radius : Fin) (b : Budget)
       (map, b', fs fz)
   end.
 
-Instance create_gradient_write : WriteOperation (Fin * Fin) EntropyMap := {
+#[export] Instance create_gradient_write : WriteOperation (Fin * Fin) EntropyMap := {
   write_op := fun '(center, radius) => write_create_gradient center radius
 }.
 
@@ -234,7 +234,7 @@ Definition write_tunnel_through_well (tp : TunnelingPattern) (w : EntropyWell)
       end
   end.
 
-Instance tunnel_through_well_write : WriteOperation (TunnelingPattern * EntropyWell * Fin)
+#[export] Instance tunnel_through_well_write : WriteOperation (TunnelingPattern * EntropyWell * Fin)
                                                    TunnelingPattern := {
   write_op := fun '(tp, w, exit) => write_tunnel_through_well tp w exit
 }.
@@ -267,7 +267,7 @@ Fixpoint write_find_tunnel_path (start target : Fin) (emap : EntropyMap)
         end
   end.
 
-Instance find_path_write : WriteOperation (Fin * Fin * EntropyMap * Fin) (list Fin) := {
+#[export] Instance find_path_write : WriteOperation (Fin * Fin * EntropyMap * Fin) (list Fin) := {
   write_op := fun '(start, target, emap, fuel) => write_find_tunnel_path start target emap fuel
 }.
 
@@ -288,7 +288,7 @@ Definition write_decay_tunnel_capability (tp : TunnelingPattern) (b : Budget)
       end
   end.
 
-Instance decay_tunnel_write : WriteOperation TunnelingPattern TunnelingPattern := {
+#[export] Instance decay_tunnel_write : WriteOperation TunnelingPattern TunnelingPattern := {
   write_op := write_decay_tunnel_capability
 }.
 

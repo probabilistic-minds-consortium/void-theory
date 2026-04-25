@@ -818,6 +818,51 @@ Proof.
     rewrite Hsub_eq. exists bsub, (add_spur h1 hsub). reflexivity.
 Qed.
 
+(* Bridge: when budget suffices, sub_saturate_b_spur computes fin_sub.
+   Deterministic form: if the budgeted subtraction returns (res, b', h)
+   with sufficient budget, then res IS the pure fin_sub n m.  Convenient
+   for rewriting destructured results back to pure arithmetic. *)
+Lemma sub_saturate_is_fin_sub : forall n m b res b' h,
+  leF m n ->
+  leF (fs m) b ->
+  sub_saturate_b_spur n m b = (res, b', h) ->
+  res = fin_sub n m.
+Proof.
+  intros n m b res b' h _ Hb Hsub.
+  destruct (sub_saturate_b_heat_pure m n b Hb) as [b'' [h'' Heq]].
+  rewrite Hsub in Heq.
+  inversion Heq. reflexivity.
+Qed.
+
+(* COMPLEMENT EXHAUSTION — The Partition Axiom
+
+   In classical probability, P(H) + P(¬H) = 1 is axiomatic.
+   Here we PROVE it, for frozen-denominator FinProb, from structure alone:
+   the numerators of H and its complement sum exactly to the denominator.
+
+   This is not a commitment to binary logic.  It is a commitment to the
+   partition structure: once we fix a universe D and pick a part n ≤ D,
+   the complement D−n is what remains, and addition recovers D.
+   No infinity.  No limits.  No σ-algebra.  No axioms.
+   Just finite arithmetic that has paid its budget. *)
+Theorem complement_exhaustion : forall fp b comp b' h,
+  leF (fp_num fp) (fp_den fp) ->
+  leF (fs (fp_num fp)) b ->
+  frozen_complement fp b = (comp, b', h) ->
+  fin_add (fp_num fp) (fp_num comp) = fp_den fp.
+Proof.
+  intros fp b comp b' h Hle Hb Hfc.
+  unfold frozen_complement in Hfc.
+  destruct (sub_saturate_b_spur (fp_den fp) (fp_num fp) b)
+    as [[comp_n b''] h''] eqn:Hsub.
+  inversion Hfc; subst. simpl.
+  assert (Hres : comp_n = fin_sub (fp_den fp) (fp_num fp)).
+  { eapply sub_saturate_is_fin_sub;
+      [exact Hle | exact Hb | exact Hsub]. }
+  rewrite Hres.
+  apply add_sub_cancel. exact Hle.
+Qed.
+
 (******************************************************************************)
 (* SECTION 7d: THE CORE THEOREM — CORRECTED                                  *)
 (*                                                                            *)

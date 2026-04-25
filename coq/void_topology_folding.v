@@ -56,7 +56,7 @@ Record NetworkTopology := {
 Definition read_bridge_endpoints (br : FoldBridge) : (Fin * Fin) :=
   (end1 br, end2 br).
 
-Instance bridge_endpoints_read : ReadOperation FoldBridge (Fin * Fin) := {
+#[export] Instance bridge_endpoints_read : ReadOperation FoldBridge (Fin * Fin) := {
   read_op := read_bridge_endpoints
 }.
 
@@ -64,7 +64,7 @@ Instance bridge_endpoints_read : ReadOperation FoldBridge (Fin * Fin) := {
 Definition read_bridge_stability (br : FoldBridge) : FinProb :=
   stability br.
 
-Instance bridge_stability_read : ReadOperation FoldBridge FinProb := {
+#[export] Instance bridge_stability_read : ReadOperation FoldBridge FinProb := {
   read_op := read_bridge_stability
 }.
 
@@ -75,7 +75,7 @@ Definition read_bridge_exists (br : FoldBridge) : bool :=
   | _ => true
   end.
 
-Instance bridge_exists_read : ReadOperation FoldBridge bool := {
+#[export] Instance bridge_exists_read : ReadOperation FoldBridge bool := {
   read_op := read_bridge_exists
 }.
 
@@ -86,7 +86,7 @@ Fixpoint read_bridge_count (bridges : list FoldBridge) : Fin :=
   | _ :: rest => fs (read_bridge_count rest)
   end.
 
-Instance bridge_count_read : ReadOperation (list FoldBridge) Fin := {
+#[export] Instance bridge_count_read : ReadOperation (list FoldBridge) Fin := {
   read_op := read_bridge_count
 }.
 
@@ -94,7 +94,7 @@ Instance bridge_count_read : ReadOperation (list FoldBridge) Fin := {
 Definition read_curvature (net : NetworkTopology) : FinProb :=
   ambient_curvature net.
 
-Instance curvature_read : ReadOperation NetworkTopology FinProb := {
+#[export] Instance curvature_read : ReadOperation NetworkTopology FinProb := {
   read_op := read_curvature
 }.
 
@@ -107,7 +107,7 @@ Definition fold_cost_dynamic (net : NetworkTopology) : Fin :=
   (* Always one tick - high curvature affects success rate, not cost *)
   operation_cost.
 
-Instance fold_cost_read : ReadOperation NetworkTopology Fin := {
+#[export] Instance fold_cost_read : ReadOperation NetworkTopology Fin := {
   read_op := fold_cost_dynamic
 }.
 
@@ -116,7 +116,7 @@ Definition maintenance_cost_dynamic (br : FoldBridge) : Fin :=
   (* Always one tick - weak bridges fail more often, not cost more *)
   operation_cost.
 
-Instance maintenance_cost_read : ReadOperation FoldBridge Fin := {
+#[export] Instance maintenance_cost_read : ReadOperation FoldBridge Fin := {
   read_op := maintenance_cost_dynamic
 }.
 
@@ -125,7 +125,7 @@ Definition wormhole_cost_dynamic (net_budget : Budget) : Fin :=
   (* Always one tick - desperation affects success probability *)
   operation_cost.
 
-Instance wormhole_cost_read : ReadOperation Budget Fin := {
+#[export] Instance wormhole_cost_read : ReadOperation Budget Fin := {
   read_op := wormhole_cost_dynamic
 }.
 
@@ -140,7 +140,7 @@ Definition stability_threshold_dynamic (net : NetworkTopology) : FinProb :=
       end
   end.
 
-Instance stability_threshold_read : ReadOperation NetworkTopology FinProb := {
+#[export] Instance stability_threshold_read : ReadOperation NetworkTopology FinProb := {
   read_op := stability_threshold_dynamic
 }.
 
@@ -181,7 +181,7 @@ Definition write_fold_space (net : NetworkTopology) (loc1 loc2 : Fin) (b : Budge
       end
   end.
 
-Instance fold_space_write : WriteOperation (NetworkTopology * Fin * Fin) NetworkTopology := {
+#[export] Instance fold_space_write : WriteOperation (NetworkTopology * Fin * Fin) NetworkTopology := {
   write_op := fun '(net, loc1, loc2) => write_fold_space net loc1 loc2
 }.
 
@@ -208,7 +208,7 @@ Fixpoint write_check_bridged (loc1 loc2 : Fin) (bridges : list FoldBridge) (b : 
       end
   end.
 
-Instance check_bridged_write : WriteOperation (Fin * Fin * list FoldBridge) bool := {
+#[export] Instance check_bridged_write : WriteOperation (Fin * Fin * list FoldBridge) bool := {
   write_op := fun '(loc1, loc2, bridges) => write_check_bridged loc1 loc2 bridges
 }.
 
@@ -237,7 +237,7 @@ Definition write_bridge_jump (p : Pattern) (br : FoldBridge) (b : Budget)
       end
   end.
 
-Instance bridge_jump_write : WriteOperation (Pattern * FoldBridge) Pattern := {
+#[export] Instance bridge_jump_write : WriteOperation (Pattern * FoldBridge) Pattern := {
   write_op := fun '(p, br) => write_bridge_jump p br
 }.
 
@@ -282,7 +282,7 @@ Definition write_maintain_bridges (net : NetworkTopology) (b : Budget)
       end
   end.
 
-Instance maintain_bridges_write : WriteOperation NetworkTopology NetworkTopology := {
+#[export] Instance maintain_bridges_write : WriteOperation NetworkTopology NetworkTopology := {
   write_op := write_maintain_bridges
 }.
 
@@ -306,7 +306,7 @@ Definition write_create_wormhole (net : NetworkTopology) (loc1 loc2 : Fin) (b : 
           topology_budget := topology_budget net |}, b', fs fz)
   end.
 
-Instance wormhole_write : WriteOperation (NetworkTopology * Fin * Fin) NetworkTopology := {
+#[export] Instance wormhole_write : WriteOperation (NetworkTopology * Fin * Fin) NetworkTopology := {
   write_op := fun '(net, loc1, loc2) => write_create_wormhole net loc1 loc2
 }.
 
@@ -334,7 +334,7 @@ Definition write_unfold_space (net : NetworkTopology) (b : Budget)
       end
   end.
 
-Instance unfold_space_write : WriteOperation NetworkTopology NetworkTopology := {
+#[export] Instance unfold_space_write : WriteOperation NetworkTopology NetworkTopology := {
   write_op := write_unfold_space
 }.
 
@@ -351,7 +351,7 @@ Definition write_check_critical (net : NetworkTopology) (b : Budget)
       end
   end.
 
-Instance check_critical_write : WriteOperation NetworkTopology bool := {
+#[export] Instance check_critical_write : WriteOperation NetworkTopology bool := {
   write_op := write_check_critical
 }.
 

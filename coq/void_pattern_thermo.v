@@ -59,7 +59,7 @@ Definition thermal_success_rate (sp : Fin) (budget : Budget) : FinProb :=
       end
   end.
 
-Instance thermal_success_read : ReadOperation (Fin * Budget) FinProb := {
+#[export] Instance thermal_success_read : ReadOperation (Fin * Budget) FinProb := {
   read_op := fun '(sp, budget) => thermal_success_rate sp budget
 }.
 

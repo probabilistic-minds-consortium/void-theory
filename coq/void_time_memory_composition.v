@@ -90,7 +90,7 @@ Definition tl {A : Type} := @List.tl A.
 Definition read_resolution (o : Observer) : FinProb :=
   resolution o.
 
-Instance resolution_read : ReadOperation Observer FinProb := {
+#[export] Instance resolution_read : ReadOperation Observer FinProb := {
   read_op := read_resolution
 }.
 
@@ -101,7 +101,7 @@ Definition read_can_observe (o : Observer) : bool :=
   | _ => true
   end.
 
-Instance can_observe_read : ReadOperation Observer bool := {
+#[export] Instance can_observe_read : ReadOperation Observer bool := {
   read_op := read_can_observe
 }.
 
@@ -109,7 +109,7 @@ Instance can_observe_read : ReadOperation Observer bool := {
 Definition read_trace_strength (mt : MemoryTrace) : FinProb :=
   strength mt.
 
-Instance trace_strength_read : ReadOperation MemoryTrace FinProb := {
+#[export] Instance trace_strength_read : ReadOperation MemoryTrace FinProb := {
   read_op := read_trace_strength
 }.
 
@@ -120,7 +120,7 @@ Definition read_trace_forgotten (mt : MemoryTrace) : bool :=
   | _ => false
   end.
 
-Instance trace_forgotten_read : ReadOperation MemoryTrace bool := {
+#[export] Instance trace_forgotten_read : ReadOperation MemoryTrace bool := {
   read_op := read_trace_forgotten
 }.
 
@@ -131,7 +131,7 @@ Fixpoint read_memory_count (traces : list MemoryTrace) : Fin :=
   | _ :: rest => fs (read_memory_count rest)
   end.
 
-Instance memory_count_read : ReadOperation (list MemoryTrace) Fin := {
+#[export] Instance memory_count_read : ReadOperation (list MemoryTrace) Fin := {
   read_op := read_memory_count
 }.
 
@@ -144,7 +144,7 @@ Definition observation_cost_dynamic (o : Observer) : Fin :=
   (* Always one tick - resolution affects success rate, not cost *)
   operation_cost.
 
-Instance observation_cost_read : ReadOperation Observer Fin := {
+#[export] Instance observation_cost_read : ReadOperation Observer Fin := {
   read_op := observation_cost_dynamic
 }.
 
@@ -153,7 +153,7 @@ Definition sync_cost_dynamic (o1 o2 : Observer) : Fin :=
   (* Always one tick - resolution difference affects quality, not cost *)
   operation_cost.
 
-Instance sync_cost_read : ReadOperation (Observer * Observer) Fin := {
+#[export] Instance sync_cost_read : ReadOperation (Observer * Observer) Fin := {
   read_op := fun '(o1, o2) => sync_cost_dynamic o1 o2
 }.
 
@@ -162,7 +162,7 @@ Definition decay_rate_dynamic (mt : MemoryTrace) : Fin :=
   (* Always one tick per decay step *)
   operation_cost.
 
-Instance decay_rate_read : ReadOperation MemoryTrace Fin := {
+#[export] Instance decay_rate_read : ReadOperation MemoryTrace Fin := {
   read_op := decay_rate_dynamic
 }.
 
@@ -189,7 +189,7 @@ Definition write_observe_tick (o : Observer) (t : tick) (b : Budget)
       end
   end.
 
-Instance observe_tick_write : WriteOperation (Observer * tick) (option MemoryTrace * Observer) := {
+#[export] Instance observe_tick_write : WriteOperation (Observer * tick) (option MemoryTrace * Observer) := {
   write_op := fun '(o, t) b =>
     match write_observe_tick o t b with
     | (mt, o', b', h) => ((mt, o'), b', h)
@@ -218,7 +218,7 @@ Definition write_store_observation (mb : MemoryBank) (mt : MemoryTrace) (b : Bud
       end
   end.
 
-Instance store_observation_write : WriteOperation (MemoryBank * MemoryTrace) MemoryBank := {
+#[export] Instance store_observation_write : WriteOperation (MemoryBank * MemoryTrace) MemoryBank := {
   write_op := fun '(mb, mt) => write_store_observation mb mt
 }.
 
@@ -235,7 +235,7 @@ Definition write_decay_trace (mt : MemoryTrace) (b : Budget)
       end
   end.
 
-Instance decay_trace_write : WriteOperation MemoryTrace MemoryTrace := {
+#[export] Instance decay_trace_write : WriteOperation MemoryTrace MemoryTrace := {
   write_op := write_decay_trace
 }.
 
@@ -270,7 +270,7 @@ Definition write_decay_memory_bank (mb : MemoryBank) (b : Budget)
       end
   end.
 
-Instance decay_memory_write : WriteOperation MemoryBank MemoryBank := {
+#[export] Instance decay_memory_write : WriteOperation MemoryBank MemoryBank := {
   write_op := write_decay_memory_bank
 }.
 
@@ -297,7 +297,7 @@ Definition write_tick_similarity (t1 t2 : tick) (tolerance : Fin) (b : Budget)
   | _, _, _ => (false, b, fz)
   end.
 
-Instance tick_similarity_write : WriteOperation (tick * tick * Fin) bool := {
+#[export] Instance tick_similarity_write : WriteOperation (tick * tick * Fin) bool := {
   write_op := fun '(t1, t2, tol) => write_tick_similarity t1 t2 tol
 }.
 
@@ -319,7 +319,7 @@ Fixpoint write_find_similar_tick (t : tick) (traces : list MemoryTrace)
       end
   end.
 
-Instance find_similar_write : WriteOperation (tick * list MemoryTrace * Fin) 
+#[export] Instance find_similar_write : WriteOperation (tick * list MemoryTrace * Fin) 
                                             (option (tick * FinProb)) := {
   write_op := fun '(t, traces, tol) => write_find_similar_tick t traces tol
 }.
@@ -343,7 +343,7 @@ Definition write_sync_observers (o1 o2 : Observer) (b : Budget)
       end
   end.
 
-Instance sync_observers_write : WriteOperation (Observer * Observer) (Observer * Observer) := {
+#[export] Instance sync_observers_write : WriteOperation (Observer * Observer) (Observer * Observer) := {
   write_op := fun '(o1, o2) => write_sync_observers o1 o2
 }.
 

@@ -33,7 +33,7 @@ Definition rise_cost_dynamic (layer_budget : Budget) : Fin :=
   | _ => fs fz              (* Normal: standard *)
   end.
 
-Instance rise_cost_read : ReadOperation Budget Fin := {
+#[export] Instance rise_cost_read : ReadOperation Budget Fin := {
   read_op := rise_cost_dynamic
 }.
 
@@ -41,7 +41,7 @@ Instance rise_cost_read : ReadOperation Budget Fin := {
 Definition sink_cost_dynamic (layer_budget : Budget) : Fin :=
   fs fz.  (* Always one tick - gravity makes this cheap *)
 
-Instance sink_cost_read : ReadOperation Budget Fin := {
+#[export] Instance sink_cost_read : ReadOperation Budget Fin := {
   read_op := sink_cost_dynamic
 }.
 
@@ -53,7 +53,7 @@ Definition circulation_cost_dynamic (cell_budget : Budget) : Fin :=
   | _ => fs fz              (* Normal energy: standard *)
   end.
 
-Instance circulation_cost_read : ReadOperation Budget Fin := {
+#[export] Instance circulation_cost_read : ReadOperation Budget Fin := {
   read_op := circulation_cost_dynamic
 }.
 
@@ -64,7 +64,7 @@ Definition layer_search_cost_dynamic (available_budget : Budget) : Fin :=
   | _ => fs fz              (* Normal: standard search cost *)
   end.
 
-Instance layer_search_cost_read : ReadOperation Budget Fin := {
+#[export] Instance layer_search_cost_read : ReadOperation Budget Fin := {
   read_op := layer_search_cost_dynamic
 }.
 
@@ -75,7 +75,7 @@ Definition temperature_calc_cost_dynamic (layer_budget : Budget) : Fin :=
   | _ => fs fz              (* Normal: standard *)
   end.
 
-Instance temperature_calc_cost_read : ReadOperation Budget Fin := {
+#[export] Instance temperature_calc_cost_read : ReadOperation Budget Fin := {
   read_op := temperature_calc_cost_dynamic
 }.
 
@@ -88,7 +88,7 @@ Definition emergency_multiplier_dynamic (system_budget : Budget) : Fin :=
   | _ => fs fz                         (* Normal: 1x *)
   end.
 
-Instance emergency_multiplier_read : ReadOperation Budget Fin := {
+#[export] Instance emergency_multiplier_read : ReadOperation Budget Fin := {
   read_op := emergency_multiplier_dynamic
 }.
 
@@ -100,7 +100,7 @@ Definition spur_threshold_dynamic (system_budget : Budget) : Fin :=
   | _ => fs (fs fz)         (* Normal: standard threshold *)
   end.
 
-Instance spur_threshold_read : ReadOperation Budget Fin := {
+#[export] Instance spur_threshold_read : ReadOperation Budget Fin := {
   read_op := spur_threshold_dynamic
 }.
 

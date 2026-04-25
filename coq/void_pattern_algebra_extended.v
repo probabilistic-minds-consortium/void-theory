@@ -83,7 +83,7 @@ Definition transfer_budget (from to : Budget) (amount : Fin) (b : Budget)
       end
   end.
 
-Instance budget_transfer_write : WriteOperation (Budget * Budget * Fin) (Budget * Budget) := {
+#[export] Instance budget_transfer_write : WriteOperation (Budget * Budget * Fin) (Budget * Budget) := {
   write_op := fun '(from, to, amount) b =>
     match transfer_budget from to amount b with
     | (f', t', h) => ((f', t'), b, h)

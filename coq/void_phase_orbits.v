@@ -60,7 +60,7 @@ Record OrbitalSystem := {
 Definition read_phase (orbit : PhaseOrbit) : Fin :=
   phase orbit.
 
-Instance phase_read : ReadOperation PhaseOrbit Fin := {
+#[export] Instance phase_read : ReadOperation PhaseOrbit Fin := {
   read_op := read_phase
 }.
 
@@ -68,7 +68,7 @@ Instance phase_read : ReadOperation PhaseOrbit Fin := {
 Definition read_period (orbit : PhaseOrbit) : Fin :=
   period orbit.
 
-Instance period_read : ReadOperation PhaseOrbit Fin := {
+#[export] Instance period_read : ReadOperation PhaseOrbit Fin := {
   read_op := read_period
 }.
 
@@ -76,7 +76,7 @@ Instance period_read : ReadOperation PhaseOrbit Fin := {
 Definition read_stability (orbit : PhaseOrbit) : FinProb :=
   stability orbit.
 
-Instance stability_read : ReadOperation PhaseOrbit FinProb := {
+#[export] Instance stability_read : ReadOperation PhaseOrbit FinProb := {
   read_op := read_stability
 }.
 
@@ -86,7 +86,7 @@ Definition read_is_stable (orbit : PhaseOrbit) : bool :=
   | (n, d) => negb (fin_eq n fz)  (* Stable if numerator non-zero *)
   end.
 
-Instance is_stable_read : ReadOperation PhaseOrbit bool := {
+#[export] Instance is_stable_read : ReadOperation PhaseOrbit bool := {
   read_op := read_is_stable
 }.
 
@@ -98,7 +98,7 @@ Fixpoint read_orbit_position (points : list Fin) (phase : Fin) : Fin :=
   | _ :: rest, fs phase' => read_orbit_position rest phase'
   end.
 
-Instance orbit_position_read : ReadOperation (list Fin * Fin) Fin := {
+#[export] Instance orbit_position_read : ReadOperation (list Fin * Fin) Fin := {
   read_op := fun '(points, phase) => read_orbit_position points phase
 }.
 
@@ -111,7 +111,7 @@ Definition orbit_step_cost_dynamic (orbit : PhaseOrbit) : Fin :=
   (* Always one tick - stability affects success rate, not cost *)
   operation_cost.
 
-Instance orbit_step_cost_read : ReadOperation PhaseOrbit Fin := {
+#[export] Instance orbit_step_cost_read : ReadOperation PhaseOrbit Fin := {
   read_op := orbit_step_cost_dynamic
 }.
 
@@ -120,7 +120,7 @@ Definition intersection_check_cost_dynamic (system_budget : Budget) : Fin :=
   (* Always one tick - complexity handled by iteration *)
   operation_cost.
 
-Instance intersection_cost_read : ReadOperation Budget Fin := {
+#[export] Instance intersection_cost_read : ReadOperation Budget Fin := {
   read_op := intersection_check_cost_dynamic
 }.
 
@@ -129,7 +129,7 @@ Definition orbit_hop_cost_dynamic (from_orbit to_orbit : PhaseOrbit) : Fin :=
   (* Always one tick - distance affects success probability *)
   operation_cost.
 
-Instance hop_cost_read : ReadOperation (PhaseOrbit * PhaseOrbit) Fin := {
+#[export] Instance hop_cost_read : ReadOperation (PhaseOrbit * PhaseOrbit) Fin := {
   read_op := fun '(from, to) => orbit_hop_cost_dynamic from to
 }.
 
@@ -156,7 +156,7 @@ Definition write_advance_phase (orbit : PhaseOrbit) (b : Budget)
           orbit_budget := orbit_budget orbit |}, b', fs fz)
   end.
 
-Instance advance_phase_write : WriteOperation PhaseOrbit PhaseOrbit := {
+#[export] Instance advance_phase_write : WriteOperation PhaseOrbit PhaseOrbit := {
   write_op := write_advance_phase
 }.
 
@@ -180,7 +180,7 @@ Definition write_orbital_step (op : OrbitalPattern) (b : Budget)
       end
   end.
 
-Instance orbital_step_write : WriteOperation OrbitalPattern OrbitalPattern := {
+#[export] Instance orbital_step_write : WriteOperation OrbitalPattern OrbitalPattern := {
   write_op := write_orbital_step
 }.
 
@@ -198,7 +198,7 @@ Definition write_check_intersection (o1 o2 : PhaseOrbit) (b : Budget)
       end
   end.
 
-Instance intersection_check_write : WriteOperation (PhaseOrbit * PhaseOrbit) bool := {
+#[export] Instance intersection_check_write : WriteOperation (PhaseOrbit * PhaseOrbit) bool := {
   write_op := fun '(o1, o2) => write_check_intersection o1 o2
 }.
 
@@ -221,7 +221,7 @@ Definition write_orbit_hop (op : OrbitalPattern) (target : PhaseOrbit) (b : Budg
       end
   end.
 
-Instance orbit_hop_write : WriteOperation (OrbitalPattern * PhaseOrbit) OrbitalPattern := {
+#[export] Instance orbit_hop_write : WriteOperation (OrbitalPattern * PhaseOrbit) OrbitalPattern := {
   write_op := fun '(op, target) => write_orbit_hop op target
 }.
 
@@ -238,7 +238,7 @@ Definition write_escape_check (op : OrbitalPattern) (b : Budget)
       end
   end.
 
-Instance escape_check_write : WriteOperation OrbitalPattern bool := {
+#[export] Instance escape_check_write : WriteOperation OrbitalPattern bool := {
   write_op := write_escape_check
 }.
 
@@ -261,7 +261,7 @@ Definition write_circular_orbit (center : Fin) (radius : Fin) (b : Budget)
           orbit_budget := b' |}, b', fs fz)
   end.
 
-Instance circular_orbit_write : WriteOperation (Fin * Fin) PhaseOrbit := {
+#[export] Instance circular_orbit_write : WriteOperation (Fin * Fin) PhaseOrbit := {
   write_op := fun '(center, radius) => write_circular_orbit center radius
 }.
 
@@ -284,7 +284,7 @@ Definition write_figure_eight_orbit (b : Budget) : (PhaseOrbit * Budget * Spuren
           orbit_budget := b' |}, b', fs fz)
   end.
 
-Instance figure_eight_write : WriteOperation unit PhaseOrbit := {
+#[export] Instance figure_eight_write : WriteOperation unit PhaseOrbit := {
   write_op := fun _ => write_figure_eight_orbit
 }.
 
@@ -309,7 +309,7 @@ Definition write_perturb_orbit (orbit : PhaseOrbit) (chaos : Fin) (b : Budget)
       end
   end.
 
-Instance perturb_orbit_write : WriteOperation (PhaseOrbit * Fin) PhaseOrbit := {
+#[export] Instance perturb_orbit_write : WriteOperation (PhaseOrbit * Fin) PhaseOrbit := {
   write_op := fun '(orbit, chaos) => write_perturb_orbit orbit chaos
 }.
 
@@ -345,7 +345,7 @@ Definition write_evolve_system (sys : OrbitalSystem) (b : Budget)
       end
   end.
 
-Instance evolve_system_write : WriteOperation OrbitalSystem OrbitalSystem := {
+#[export] Instance evolve_system_write : WriteOperation OrbitalSystem OrbitalSystem := {
   write_op := write_evolve_system
 }.
 

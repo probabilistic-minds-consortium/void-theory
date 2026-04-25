@@ -30,7 +30,7 @@ Definition crisis_cost_multiplier (remaining_budget initial_budget : Budget) : F
   | _ => fs fz                                          (* Normal: 1x *)
   end.
 
-Instance crisis_multiplier_read : ReadOperation Budget Fin := {
+#[export] Instance crisis_multiplier_read : ReadOperation Budget Fin := {
   read_op := fun b => crisis_cost_multiplier b b  (* Compare to self for simplicity *)
 }.
 
@@ -42,7 +42,7 @@ Definition assess_crisis_level (local_energy : Budget) : Fin :=
   | _ => fs (fs fz)    (* Mild *)
   end.
 
-Instance crisis_level_read : ReadOperation Budget Fin := {
+#[export] Instance crisis_level_read : ReadOperation Budget Fin := {
   read_op := assess_crisis_level
 }.
 
@@ -147,7 +147,7 @@ Definition strategy_cost_dynamic (s : CrisisStrategy) (crisis_level : Fin) : Fin
   | _ => base_cost  (* Mild crisis: normal costs *)
   end.
 
-Instance strategy_cost_read : ReadOperation (CrisisStrategy * Fin) Fin := {
+#[export] Instance strategy_cost_read : ReadOperation (CrisisStrategy * Fin) Fin := {
   read_op := fun '(strategy, crisis_level) => strategy_cost_dynamic strategy crisis_level
 }.
 

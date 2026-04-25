@@ -161,6 +161,24 @@ Parameter initial_budget : Budget.
 Axiom initial_budget_sufficient : exists n, initial_budget = fs (fs (fs n)).
 
 (******************************************************************************)
+(* CAP - EMERGENT FROM CONTOUR, NOT AXIOMATIC                                *)
+(*                                                                            *)
+(* Historycznie Cap byl Parameter'em na poziomie tego pliku, z aksjomatem    *)
+(* Cap_positive zapewniajacym Cap > 0. To byla reifikacja 'zewnetrznego      *)
+(* dekretu swiata' — void-theory tego nie dopuszcza. Pojemnosc systemu nie   *)
+(* jest parametrem wszechswiata, lecz wynika z ksztaltu jego konturu.        *)
+(*                                                                            *)
+(* Per-instance capacity jest teraz polem rekordu Membrane (mem_capacity),   *)
+(* a funkcja cap : Membrane -> Fin (zdefiniowana w void_membrane.v) czyta    *)
+(* ja z konturu. cap jest funkcja membrany, nie odwrotnie.                    *)
+(*                                                                            *)
+(* A semipermeable boundary is a finite filter. It is not a backdoor to      *)
+(* infinity. Any caller of assimilate_b_spur that would produce a budget     *)
+(* exceeding cap m is responsible for truncating at its layer; the primitive *)
+(* itself is pure structural addition with Spuren bookkeeping.               *)
+(******************************************************************************)
+
+(******************************************************************************)
 (* BUDGET-AWARE OPS (3-valued core) - WITH SPUREN                            *)
 (******************************************************************************)
 
@@ -407,6 +425,36 @@ Definition dist_fin_b_spur (n m : Fin) (b : Budget) : (Fin * Budget * Spuren) :=
   | (BUnknown, b', h) => (fz, b', h)
   end.
 
+(******************************************************************************)
+(* ASSIMILATE - THE BREATH PRIMITIVE                                         *)
+(*                                                                            *)
+(* Dual of spend. spend DECREASES budget and emits Spuren equal to the       *)
+(* amount spent. assimilate INCREASES budget and emits Spuren equal to the   *)
+(* amount ingested. In both, every tick of motion leaves exactly one tick    *)
+(* of trace. There is no free lunch even when you are eating.                *)
+(*                                                                            *)
+(* Recursion is on gain, not on budget. That matters: gain comes from the    *)
+(* collision with another contour, not from the system's own reserves. The   *)
+(* cost of transduction is paid in Spuren, not in budget.                    *)
+(*                                                                            *)
+(* Dulcinea note: there is no regime in which assimilate is free. h = gain   *)
+(* exactly, proved below. A semipermeable boundary is a finite filter, not   *)
+(* a backdoor to infinity.                                                    *)
+(*                                                                            *)
+(* The primitive does NOT enforce cap. Callers (the membrane layer) must     *)
+(* truncate gain so that b + gain <= cap m before invoking this primitive.   *)
+(* At THIS layer, assimilate is pure structural addition with bookkeeping.   *)
+(******************************************************************************)
+
+Fixpoint assimilate_b_spur (gain : Fin) (b : Budget) : (Budget * Spuren) :=
+  match gain with
+  | fz => (b, fz)
+  | fs gain' =>
+      match assimilate_b_spur gain' b with
+      | (b', h) => (fs b', fs h)
+      end
+  end.
+
 Definition safe_succ_b_spur (n : Fin) (b : Budget) : (Fin * Budget * Spuren) :=
   match b with
   | fz => (n, fz, fz)
@@ -454,6 +502,70 @@ Proof.
   intros n m b res b' h Heq.
   pose proof (no_free_lunch_add_aux n m b) as H.
   rewrite Heq in H. simpl in H. exact H.
+Qed.
+
+(* Breath still costs: a positive gain always emits positive Spuren.         *)
+Lemma no_free_lunch_assimilate_aux : forall gain b,
+  snd (assimilate_b_spur (fs gain) b) <> fz.
+Proof.
+  intros gain b. simpl.
+  destruct (assimilate_b_spur gain b) as [b' h].
+  simpl. discriminate.
+Qed.
+
+Lemma no_free_lunch_assimilate : forall gain b b' h,
+  assimilate_b_spur (fs gain) b = (b', h) -> h <> fz.
+Proof.
+  intros gain b b' h Heq.
+  pose proof (no_free_lunch_assimilate_aux gain b) as H.
+  rewrite Heq in H. simpl in H. exact H.
+Qed.
+
+(* The central identity: Spuren emitted by assimilation equals gain ingested. *)
+(* Every fs of gain leaves exactly one fs of trace. No smuggling.             *)
+Lemma assimilate_spuren_equals_gain : forall gain b b' h,
+  assimilate_b_spur gain b = (b', h) -> h = gain.
+Proof.
+  induction gain as [| gain' IH]; intros b b' h Heq.
+  - (* gain = fz: returns (b, fz) *)
+    simpl in Heq. inversion Heq; subst. reflexivity.
+  - (* gain = fs gain': recurse *)
+    simpl in Heq.
+    destruct (assimilate_b_spur gain' b) as [b1 h1] eqn:Hassim.
+    inversion Heq; subst.
+    f_equal. exact (IH _ _ _ Hassim).
+Qed.
+
+(* Budget growth: final budget is initial budget plus Spuren (= plus gain). *)
+(* This is the breath analogue of spend's conservation law, flipped:         *)
+(*   spend:      add_spur h b' = b         (budget shrinks, trace grows)     *)
+(*   assimilate: b' = add_spur b h         (budget grows, trace also grows)  *)
+(* The trace is honestly on the left of the equation in both cases --        *)
+(* it is never hidden.                                                        *)
+Lemma assimilate_budget_growth : forall gain b b' h,
+  assimilate_b_spur gain b = (b', h) -> b' = add_spur b h.
+Proof.
+  induction gain as [| gain' IH]; intros b b' h Heq.
+  - (* gain = fz: returns (b, fz), add_spur b fz = b. *)
+    simpl in Heq. inversion Heq; subst. simpl. reflexivity.
+  - (* gain = fs gain': recurse *)
+    simpl in Heq.
+    destruct (assimilate_b_spur gain' b) as [b1 h1] eqn:Hassim.
+    inversion Heq; subst.
+    rewrite (IH _ _ _ Hassim).
+    simpl. reflexivity.
+Qed.
+
+(* Corollary: the budget after assimilation equals the initial budget plus  *)
+(* the gain ingested. Combines the two lemmas above.                        *)
+Corollary assimilate_budget_equals_gain_plus_start :
+  forall gain b b' h,
+  assimilate_b_spur gain b = (b', h) -> b' = add_spur b gain.
+Proof.
+  intros gain b b' h Heq.
+  rewrite (assimilate_budget_growth _ _ _ _ Heq).
+  rewrite (assimilate_spuren_equals_gain _ _ _ _ Heq).
+  reflexivity.
 Qed.
 
 Fixpoint mult_fin_spur (n m : Fin) (b : Budget) : (Fin * Budget * Spuren) :=
@@ -885,3 +997,36 @@ Proof.
   - (* m = fs m': delegates to div_helper_spur *)
     exact (spur_conservation_div_helper _ _ _ _ _ _ _ _ _ Heq).
 Qed.
+
+(* ================================================================ *)
+(* SECTION: Thermodynamic Opening — Membrane                         *)
+(* ================================================================ *)
+
+(* A closed system with finite budget dies (time_irreversible +
+   cascading_blindness). Living systems are operationally closed
+   but thermodynamically open (Maturana/Varela, Schrodinger).
+   Historically this section had a Record External as an 'opaque
+   source of budget from outside'. That was a reification of
+   observer/observed dualism. In the current frame every encounter
+   is a collision of TWO contours — two Membranes. External znikl. *)
+
+(* Membrane: a contour. It has a prototype (its geometric center),
+   a tolerance (how wide the contour reaches), a capacity (the
+   maximum budget its shape admits per intake — cap is a function
+   of this geometry, not a decree of the world), and its current
+   budget (the present tension of the contour). *)
+
+(* Membrana jest rekurencyjnie zlozona: kazdy kontur moze zawierac
+   liste wewnetrznych konturow (mem_inner). Atomowa membrana ma
+   mem_inner = nil. Roznica miedzy "atomowa" a "zlozona" jest
+   ilosciowa, nie jakosciowa: wszystkie membrany sa emergentnymi
+   produktami percepcji, atomowe to po prostu te ktore wchlonely
+   malo lub nic. *)
+
+Inductive Membrane : Type := mkMembrane {
+  mem_filter_center : list (Fin * Fin);  (* prototype of what passes through *)
+  mem_filter_radius : Fin;               (* tolerance — how far from prototype *)
+  mem_capacity : Fin;                    (* max budget admitted per intake *)
+  mem_budget : Budget;                   (* membrane own budget for filtration *)
+  mem_inner : list Membrane;             (* sub-contours; nil for atomic *)
+}.
